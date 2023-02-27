@@ -10,9 +10,6 @@
  * @{
  **********************************************************************************************************************/
 
-/* Local Macros */
-#define MIN(i, j) (((i) < (j)) ? (i) : (j))
-
 /* Local Types  */
 typedef enum
 {
@@ -204,20 +201,30 @@ void dap_thread_entry(void *pvParameters)
     /* Enabled permanently for DAP and Led activity. */
     R_BSP_PinAccessEnable();
 
-    /* Update the USB Serial Number with the device UID */
-    sprintf(g_print_buffer, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
-            p_uid->unique_id_bytes[0], p_uid->unique_id_bytes[1],
-            p_uid->unique_id_bytes[2], p_uid->unique_id_bytes[3],
-            p_uid->unique_id_bytes[4], p_uid->unique_id_bytes[5],
-            p_uid->unique_id_bytes[6], p_uid->unique_id_bytes[7],
-            p_uid->unique_id_bytes[8], p_uid->unique_id_bytes[9],
-            p_uid->unique_id_bytes[10], p_uid->unique_id_bytes[11],
-            p_uid->unique_id_bytes[12], p_uid->unique_id_bytes[13],
-            p_uid->unique_id_bytes[14], p_uid->unique_id_bytes[15]);
-
-    for (uint8_t index = 0; index < MIN(sizeof(p_uid->unique_id_bytes), g_apl_string_descriptor_serial_number[0]); index++)
+    if (g_apl_string_descriptor_serial_number[0] >= 4)
     {
-        g_apl_string_descriptor_serial_number[2 + (index * 2)] = (uint8_t)g_print_buffer[index];
+        uint32_t maxIndex = (uint32_t)((g_apl_string_descriptor_serial_number[0] - 2) / 2);
+
+        if (maxIndex > sizeof(p_uid->unique_id_bytes))
+        {
+            /* Remaining id bytes are fixed */
+            maxIndex = sizeof(p_uid->unique_id_bytes);
+        }
+        /* Update the USB Serial Number with the device UID */
+        sprintf(g_print_buffer, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+                p_uid->unique_id_bytes[0], p_uid->unique_id_bytes[1],
+                p_uid->unique_id_bytes[2], p_uid->unique_id_bytes[3],
+                p_uid->unique_id_bytes[4], p_uid->unique_id_bytes[5],
+                p_uid->unique_id_bytes[6], p_uid->unique_id_bytes[7],
+                p_uid->unique_id_bytes[8], p_uid->unique_id_bytes[9],
+                p_uid->unique_id_bytes[10], p_uid->unique_id_bytes[11],
+                p_uid->unique_id_bytes[12], p_uid->unique_id_bytes[13],
+                p_uid->unique_id_bytes[14], p_uid->unique_id_bytes[15]);
+
+        for (uint8_t index = 0; index < maxIndex; index++)
+        {
+            g_apl_string_descriptor_serial_number[2 + (index * 2)] = (uint8_t)g_print_buffer[index];
+        }
     }
 
     /* Open USB instance */
