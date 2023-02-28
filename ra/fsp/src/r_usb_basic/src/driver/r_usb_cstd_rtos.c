@@ -1,5 +1,5 @@
 /***********************************************************************************************************************
- * Copyright [2020-2022] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
+ * Copyright [2020-2023] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
  *
  * This software and documentation are supplied by Renesas Electronics America Inc. and may only be used with products
  * of Renesas Electronics Corp. and its affiliates ("Renesas").  No other uses are authorized.  Renesas products are
@@ -61,6 +61,7 @@ TX_SEMAPHORE g_usb_peri_usbx_sem[USB_MAX_PIPE_NO + 1];
   #if defined(USB_CFG_OTG_USE)
 TX_TIMER g_usb_otg_detach_timer;
 TX_TIMER g_usb_otg_chattering_timer;
+TX_TIMER g_usb_otg_hnp_timer;
    #if USB_NUM_USBIP == 2
 TX_TIMER g_usb2_otg_detach_timer;
    #endif                              /* USB_NUM_USBIP == 2 */
@@ -76,9 +77,11 @@ TX_TIMER g_usb2_otg_detach_timer;
  #if ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)
 rtos_task_id_t        g_hcd_tsk_hdl;
 static rtos_task_id_t g_mgr_tsk_hdl;
-  #if USB_CFG_HUB == USB_CFG_ENABLE
+  #if (BSP_CFG_RTOS != 1)
+   #if USB_CFG_HUB == USB_CFG_ENABLE
 static rtos_task_id_t g_hub_tsk_hdl;
-  #endif                               /* USB_CFG_HUB == USB_CFG_ENABLE */
+   #endif                              /* USB_CFG_HUB == USB_CFG_ENABLE */
+  #endif                               /* BSP_CFG_RTOS != 1 */
  #endif                                /* ( (USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST ) */
  #if ((USB_CFG_MODE & USB_CFG_PERI) == USB_CFG_PERI)
 static rtos_task_id_t g_pcd_tsk_hdl;
@@ -106,6 +109,7 @@ static rtos_mbx_id_t g_hmsc_req_mbx_hdl;
 static rtos_mbx_id_t g_hcdc_mbx_hdl;
 static rtos_mbx_id_t g_hhid_mbx_hdl;
 static rtos_mbx_id_t g_pmsc_mbx_hdl;
+static rtos_mbx_id_t g_hprn_mbx_hdl;
 
 static rtos_mbx_id_t g_pipe0_hdl[USB_NUM_USBIP][USB_MAXDEVADDR];     /* USB Transfer MBX for PIPE0 wait que */
 static rtos_mbx_id_t g_pipe_hdl[USB_NUM_USBIP][USB_MAXPIPE_NUM + 1]; /* USB Transfer MBX for PIPE1-9 wait que */
@@ -125,6 +129,7 @@ rtos_mbx_id_t * g_mbx_table[] =
     &g_hcdc_mbx_hdl,                   /* A mailbox handler of USB HCDC task */
     &g_hhid_mbx_hdl,                   /* A mailbox handler of USB HHID task */
     &g_pmsc_mbx_hdl,                   /* A mailbox handler of USB PMSC task */
+    &g_hprn_mbx_hdl,                   /* A mailbox handler of USB HPRN task */
 };
 
  #if (BSP_CFG_RTOS == 2)
@@ -177,9 +182,6 @@ rtos_mem_id_t * g_mpl_table[] =
   #if ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)
 static uint8_t g_usb_hcd_stack[HCD_STACK_SIZE];
 static uint8_t g_usb_mgr_stack[MGR_STACK_SIZE];
-   #if USB_CFG_HUB == USB_CFG_ENABLE
-static uint8_t g_usb_hub_stack[HUB_STACK_SIZE];
-   #endif                              /* #if USB_CFG_HUB == USB_CFG_ENABLE */
   #endif                               /* #if ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST) */
 
   #if ((USB_CFG_MODE & USB_CFG_PERI) == USB_CFG_PERI)
@@ -207,6 +209,9 @@ static uint8_t g_rtos_usb_hcdc_mbx[sizeof(ULONG) * (TX_1_ULONG) *(QUEUE_SIZE)];
   #if defined(USB_CFG_HHID_USE)
 static uint8_t g_rtos_usb_hhid_mbx[sizeof(ULONG) * (TX_1_ULONG) *(QUEUE_SIZE)];
   #endif                               /* defined(USB_CFG_HHID_USE) */
+  #if defined(USB_CFG_HPRN_USE)
+static uint8_t g_rtos_usb_hprn_mbx[sizeof(ULONG) * (TX_1_ULONG) *(QUEUE_SIZE)];
+  #endif                               /* defined(USB_CFG_HPRN_USE) */
 
 static TX_BLOCK_POOL g_usb_block_pool_hdl;
 static uint8_t       g_usb_rtos_fixed_memblk[((sizeof(usb_utr_t) + sizeof(void *)) * NUM_OF_BLOCK)];
@@ -327,6 +332,18 @@ usb_rtos_err_t usb_rtos_configuration (usb_mode_t usb_mode)
             return err;
         }
    #endif                              /* defined(USB_CFG_HHID_USE) */
+
+   #if defined(USB_CFG_HPRN_USE)
+
+        /** USB Host Printer **/
+        g_hprn_mbx_hdl = xQueueCreate(QUEUE_SIZE, sizeof(void *));
+        if (NULL == g_hprn_mbx_hdl)
+        {
+            err = UsbRtos_Err_Init_Mbx;
+
+            return err;
+        }
+   #endif                              /* defined(USB_CFG_HPRN_USE) */
 
         /** Create memory pool using for each task **/
         /** USB HCD task **/
@@ -713,8 +730,10 @@ usb_rtos_err_t usb_rtos_configuration (usb_mode_t usb_mode)
             }
         }
     }
-}
 
+  #if (USB_NUM_USBIP == 2)
+}
+  #endif                               /* (USB_NUM_USBIP == 2) */
  #elif (BSP_CFG_RTOS == 1)             /* Azure RTOS */
     uint32_t ret;
 
@@ -840,7 +859,21 @@ usb_rtos_err_t usb_rtos_configuration (usb_mode_t usb_mode)
 
             return err;
         }
-   #endif                                                    /* defined(USB_CFG_HHID_USE) */
+   #endif                              /* defined(USB_CFG_HHID_USE) */
+
+   #if defined(USB_CFG_HPRN_USE)
+
+        /** USB Host Printer **/
+        ret =
+            tx_queue_create(&g_hprn_mbx_hdl, "USB_HPRN_MBX", TX_1_ULONG, &g_rtos_usb_hprn_mbx[0],
+                            (sizeof(ULONG) * (TX_1_ULONG) *(QUEUE_SIZE)));
+        if (TX_SUCCESS != ret)
+        {
+            err = UsbRtos_Err_Init_Mbx;
+
+            return err;
+        }
+   #endif                                                    /* defined(USB_CFG_HPRN_USE) */
 
         ret = tx_thread_create(&g_hcd_tsk_hdl,               /** Pointer to a thread control block.              **/
                                "HCD_TASK",                   /** Pointer to the name of the thread.              **/
@@ -858,25 +891,6 @@ usb_rtos_err_t usb_rtos_configuration (usb_mode_t usb_mode)
 
             return err;
         }
-
-   #if USB_CFG_HUB == USB_CFG_ENABLE
-        ret = tx_thread_create(&g_hub_tsk_hdl,               /** Pointer to a thread control block.              **/
-                               "HUB_TSK",                    /** Pointer to the name of the thread.              **/
-                               usb_hstd_hub_task,            /** Entry function of USB HCD task                  **/
-                               (uint32_t) NULL,              /** Task's parameter                                **/
-                               (void *) &g_usb_hub_stack[0], /** Starting address of the stack fs memory area.   **/
-                               HUB_STACK_SIZE,               /** Number bytes in the stack memory area.          **/
-                               HUB_TSK_PRI,                  /** Task's priority                                 **/
-                               HUB_TSK_PRI,                  /** Task's priority                                 **/
-                               TX_NO_TIME_SLICE,             /** Time Slice (Yes or No)                          **/
-                               TX_AUTO_START);               /** Auto Start (Yes or No)                          **/
-        if (TX_SUCCESS != ret)
-        {
-            err = UsbRtos_Err_Init_Tsk;
-
-            return err;
-        }
-   #endif                                                    /* USB_CFG_HUB == USB_CFG_ENABLE */
 
         ret = tx_thread_create(&g_mgr_tsk_hdl,               /** Pointer to a thread control block.              **/
                                "MGR_TSK",                    /** Pointer to the name of the thread.              **/
@@ -1005,6 +1019,21 @@ usb_rtos_err_t usb_rtos_configuration (usb_mode_t usb_mode)
         return err;
     }
 
+    ret = tx_timer_create(&g_usb_otg_hnp_timer, /* Pointer to detach timer */
+                          "USB OTG HNP Timer",  /* Detach Timer Name */
+                          usb_otg_hnp_timer,    /* Pointer to detach timer function */
+                          (ULONG) 0,            /* Expiration Input */
+                          (ULONG) 10,           /* Initial Ticks */
+                          (ULONG) 10,           /* Reschedule Ticks */
+                          TX_NO_ACTIVATE);      /* Auto Activate */
+
+    if (TX_SUCCESS != ret)
+    {
+        err = UsbRtos_Err_Init_OTG_HNP_Tmr;
+
+        return err;
+    }
+
    #if USB_NUM_USBIP == 2
     ret = tx_timer_create(&g_usb2_otg_detach_timer, /* Pointer to detach timer */
                           "USB2 OTG Detach Timer",  /* Detach Timer Name */
@@ -1022,10 +1051,9 @@ usb_rtos_err_t usb_rtos_configuration (usb_mode_t usb_mode)
     }
    #endif                              /* USB_NUM_USBIP == 2 */
   #endif                               /* defined (USB_CFG_OTG_USE) */
-
  #endif                                /* BSP_CFG_RTOS */
 
-return err;
+    return err;
 }                                      /* End of function usb_rtos_configuration() */
 
 /******************************************************************************
@@ -1089,6 +1117,12 @@ usb_rtos_err_t usb_rtos_delete (uint8_t module_number)
         /** USB Host HID **/
         vQueueDelete(g_hhid_mbx_hdl);
    #endif                              /* defined(USB_CFG_HHID_USE) */
+
+   #if defined(USB_CFG_HPRN_USE)
+
+        /** USB Host Printer **/
+        vQueueDelete(g_hprn_mbx_hdl);
+   #endif                              /* defined(USB_CFG_HPRN_USE) */
 
         /** Delete memory pool using for each task **/
         /** USB HCD task **/
@@ -1208,8 +1242,10 @@ usb_rtos_err_t usb_rtos_delete (uint8_t module_number)
             vQueueDelete(g_pipe_hdl[ip_loop][pipe_loop]);
         }
     }
-}
 
+  #if (USB_NUM_USBIP == 2)
+}
+  #endif                               /* (USB_NUM_USBIP == 2) */
  #elif (BSP_CFG_RTOS == 1)             /* Azure RTOS */
     uint32_t ret;
 
@@ -1228,37 +1264,6 @@ usb_rtos_err_t usb_rtos_delete (uint8_t module_number)
   #endif                               /* !defined (USB_CFG_OTG_USE)*/
     {
   #if ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)
-        ret = tx_thread_terminate(&g_hcd_tsk_hdl);
-        if (TX_SUCCESS != ret)
-        {
-            err = UsbRtos_Err_Init_Tsk;
-
-            return err;
-        }
-
-        ret = tx_thread_delete(&g_hcd_tsk_hdl); /** Pointer to a thread control block.  **/
-        if (TX_SUCCESS != ret)
-        {
-            err = UsbRtos_Err_Init_Tsk;
-
-            return err;
-        }
-
-        ret = tx_thread_terminate(&g_mgr_tsk_hdl);
-        if (TX_SUCCESS != ret)
-        {
-            err = UsbRtos_Err_Init_Tsk;
-
-            return err;
-        }
-
-        ret = tx_thread_delete(&g_mgr_tsk_hdl); /** Task handler for use later      **/
-        if (TX_SUCCESS != ret)
-        {
-            err = UsbRtos_Err_Init_Tsk;
-
-            return err;
-        }
 
         /** Delete mailbox for each task. **/
         /** USB HCD task **/
@@ -1348,6 +1353,50 @@ usb_rtos_err_t usb_rtos_delete (uint8_t module_number)
             return err;
         }
    #endif                              /* defined(USB_CFG_HHID_USE) */
+
+   #if defined(USB_CFG_HPRN_USE)
+
+        /** USB Host Printer **/
+        ret = tx_queue_delete(&g_hprn_mbx_hdl);
+        if (TX_SUCCESS != ret)
+        {
+            err = UsbRtos_Err_Init_Mbx;
+
+            return err;
+        }
+   #endif                              /* defined(USB_CFG_HPRN_USE) */
+
+        ret = tx_thread_terminate(&g_hcd_tsk_hdl);
+        if (TX_SUCCESS != ret)
+        {
+            err = UsbRtos_Err_Init_Tsk;
+
+            return err;
+        }
+
+        ret = tx_thread_delete(&g_hcd_tsk_hdl); /** Pointer to a thread control block.  **/
+        if (TX_SUCCESS != ret)
+        {
+            err = UsbRtos_Err_Init_Tsk;
+
+            return err;
+        }
+
+        ret = tx_thread_terminate(&g_mgr_tsk_hdl);
+        if (TX_SUCCESS != ret)
+        {
+            err = UsbRtos_Err_Init_Tsk;
+
+            return err;
+        }
+
+        ret = tx_thread_delete(&g_mgr_tsk_hdl); /** Task handler for use later      **/
+        if (TX_SUCCESS != ret)
+        {
+            err = UsbRtos_Err_Init_Tsk;
+
+            return err;
+        }
   #endif                               /* ( (USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST ) */
     }
 
@@ -1435,11 +1484,25 @@ usb_rtos_err_t usb_rtos_delete (uint8_t module_number)
         return err;
     }
    #endif                              /* USB_NUM_USBIP == 2 */
-  #endif                               /* defined (USB_CFG_OTG_USE) */
+    ret = tx_timer_delete(&g_usb_otg_chattering_timer);
+    if (TX_SUCCESS != ret)
+    {
+        err = UsbRtos_Err_Delete_OTG_Chattering_Tmr;
 
+        return err;
+    }
+
+    ret = tx_timer_delete(&g_usb_otg_hnp_timer);
+    if (TX_SUCCESS != ret)
+    {
+        err = UsbRtos_Err_Delete_OTG_HNP_Tmr;
+
+        return err;
+    }
+  #endif                               /* defined (USB_CFG_OTG_USE) */
  #endif                                /* BSP_CFG_RTOS */
 
-return err;
+    return err;
 }                                      /* End of function usb_rtos_delete() */
 
 /******************************************************************************
@@ -1954,6 +2017,10 @@ void usb_cstd_pipe0_msg_clear (usb_utr_t * ptr, uint16_t dev_addr)
             break;
         }
     } while (TX_SUCCESS == err);
+
+  #if ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)
+    tx_semaphore_put(&g_usb_host_usbx_sem[ptr->ip][0]);
+  #endif                               /* ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST) */
  #endif
 }
 

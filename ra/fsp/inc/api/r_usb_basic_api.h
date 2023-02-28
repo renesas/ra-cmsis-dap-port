@@ -1,5 +1,5 @@
 /***********************************************************************************************************************
- * Copyright [2020-2022] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
+ * Copyright [2020-2023] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
  *
  * This software and documentation are supplied by Renesas Electronics America Inc. and may only be used with products
  * of Renesas Electronics Corp. and its affiliates ("Renesas").  No other uses are authorized.  Renesas products are
@@ -157,7 +157,7 @@ FSP_HEADER
 #define USB_IFCLS_CDCD             (0x0AU)   ///< CDC-Data Class
 #define USB_IFCLS_CHIP             (0x0BU)   ///< Chip/Smart Card Class
 #define USB_IFCLS_CNT              (0x0CU)   ///< Content-Security Class
-#define USB_IFCLS_VID              (0x0DU)   ///< Video Class
+#define USB_IFCLS_VID              (0x0EU)   ///< Video Class
 #define USB_IFCLS_DIAG             (0xDCU)   ///< Diagnostic Device
 #define USB_IFCLS_WIRE             (0xE0U)   ///< Wireless Controller
 #define USB_IFCLS_APL              (0xFEU)   ///< Application-Specific
@@ -231,7 +231,10 @@ typedef enum e_usb_class
     USB_CLASS_PCDC2,                   ///< PCDC2 Class
     USB_CLASS_PCDCC2,                  ///< PCDCC2 Class
     USB_CLASS_PHID,                    ///< PHID Class
+    USB_CLASS_PHID2,                   ///< PHID2 Class
     USB_CLASS_PAUD,                    ///< PAUD Class
+    USB_CLASS_PPRN,                    ///< PPRN Class
+    USB_CLASS_DFU,                     ///< DFU Class
     USB_CLASS_PVND,                    ///< PVND Class
     USB_CLASS_HCDC,                    ///< HCDC Class
     USB_CLASS_HCDCC,                   ///< HCDCC Class
@@ -239,6 +242,8 @@ typedef enum e_usb_class
     USB_CLASS_HVND,                    ///< HVND Class
     USB_CLASS_HMSC,                    ///< HMSC Class
     USB_CLASS_PMSC,                    ///< PMSC Class
+    USB_CLASS_HPRN,                    ///< HPRN Class
+    USB_CLASS_HUVC,                    ///< HUVC Class
     USB_CLASS_REQUEST,                 ///< USB Class Request
     USB_CLASS_END                      ///< USB Class End Code
 } usb_class_t;

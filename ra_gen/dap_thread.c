@@ -124,11 +124,11 @@ const usb_cfg_t g_basic1_cfg =
   .hsirq_d1 = FSP_INVALID_VECTOR,
   .ipl = (12),
   .ipl_r = (12),
-  .ipl_d0 = FSP_INVALID_VECTOR,
-  .ipl_d1 = FSP_INVALID_VECTOR,
+  .ipl_d0 = BSP_IRQ_DISABLED,
+  .ipl_d1 = BSP_IRQ_DISABLED,
   .hsipl = (BSP_IRQ_DISABLED),
-  .hsipl_d0 = FSP_INVALID_VECTOR,
-  .hsipl_d1 = FSP_INVALID_VECTOR,
+  .hsipl_d0 = BSP_IRQ_DISABLED,
+  .hsipl_d1 = BSP_IRQ_DISABLED,
 #if (BSP_CFG_RTOS != 0)
                 .p_usb_apl_callback = usb_composite_callback,
 #else

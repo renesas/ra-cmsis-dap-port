@@ -18,6 +18,9 @@
               #define BSP_CFG_RTOS (0)
              #endif
 #endif
+#ifndef BSP_CFG_RTC_USED
+#define BSP_CFG_RTC_USED (RA_NOT_DEFINED)
+#endif
 #undef RA_NOT_DEFINED
 #if defined(_RA_BOOT_IMAGE)
              #define BSP_CFG_BOOT_IMAGE (1)
@@ -34,7 +37,6 @@
 #define BSP_CFG_C_RUNTIME_INIT ((1))
 #define BSP_CFG_EARLY_INIT     ((0))
 
-#define BSP_CFG_SOFT_RESET_SUPPORTED ((0)) // DEPRECATED, replace with BSP_CFG_STARTUP_CLOCK_REG_NOT_RESET
 #define BSP_CFG_STARTUP_CLOCK_REG_NOT_RESET ((0))
 
 #ifndef BSP_CLOCK_CFG_MAIN_OSC_POPULATED
