@@ -18,6 +18,9 @@ typedef enum
     PERIPHERAL_UART,
 } peripheral_t;
 
+#define UART_TXING 0x1
+#define UART_RXING 0x2
+
 typedef struct
 {
     uint32_t peripheral;
@@ -45,13 +48,13 @@ static usb_pcdc_ctrllinestate_t g_control_line_state = {
 };
 
 /* private function declarations */
-static void led_uart_activity(void);
 static void handle_error(fsp_err_t err, char *err_str);
 static void set_pcdc_line_coding(volatile usb_pcdc_linecoding_t *p_line_coding, const uart_cfg_t *p_uart_test_cfg);
 static void set_uart_line_coding_cfg(uart_cfg_t *p_uart_test_cfg, const volatile usb_pcdc_linecoding_t *p_line_coding);
 
 static baud_setting_t baud_setting;
 static bool enable_bitrate_modulation = true;
+static uint32_t g_uart_activity = 0x0;
 static uint32_t g_baud_rate = RESET_VALUE;
 static uint32_t error_rate_x_1000 = BAUD_ERROR_RATE;
 static uart_cfg_t g_uart_test_cfg;
@@ -137,23 +140,6 @@ static void set_uart_line_coding_cfg(uart_cfg_t *p_uart_test_cfg, const volatile
     case 2:
         p_uart_test_cfg->stop_bits = UART_STOP_BITS_2;
         break;
-    }
-}
-
-/*******************************************************************************************************************/ /**
-  *  @brief     Pulse the LED high when UART traffic is happening.
-  *  @param[IN] None
-
-  * @retval    None
-  **********************************************************************************************************************/
-static void led_uart_activity(void)
-{
-    int32_t ledindex = LED_INDEX_VCOM;
-
-    if (ledindex >= 0 && ledindex < g_bsp_leds.led_count)
-    {
-        R_BSP_PinWrite((bsp_io_port_pin_t)g_bsp_leds.p_leds[ledindex], BSP_IO_LEVEL_HIGH);
-        R_BSP_PinWrite((bsp_io_port_pin_t)g_bsp_leds.p_leds[ledindex], BSP_IO_LEVEL_LOW);
     }
 }
 
@@ -300,6 +286,7 @@ void dap_thread_entry(void *pvParameters)
                             }
 
                             /* Write data to host machine */
+                            g_uart_activity |= UART_RXING;
                             err = R_USB_Write(&g_basic1_ctrl, &usb_tx_buffer[0], (uint32_t)unload_count * rx_data_size, USB_CLASS_PCDC);
                             if (FSP_SUCCESS != err)
                             {
@@ -307,8 +294,11 @@ void dap_thread_entry(void *pvParameters)
                             }
                         }
                     }
+                    else
+                    {
+                        g_uart_activity &= (uint32_t)~UART_RXING;
+                    }
                 }
-                continue;
             }
             if (PERIPHERAL_USB == q_instance.peripheral)
             {
@@ -326,7 +316,7 @@ void dap_thread_entry(void *pvParameters)
                                 handle_error(1, "\r\nxSemaphoreTake on g_uart_tx_mutex Failed \r\n");
                             }
                         }
-
+                        g_uart_activity |= UART_TXING;
                         err = R_SCI_UART_Write(&g_uart_ctrl, g_PCDC_rx_data, q_instance.u.data_size);
                         if (FSP_SUCCESS != err)
                         {
@@ -338,6 +328,7 @@ void dap_thread_entry(void *pvParameters)
                         /* Buffer is physically transmitted since UART_EVENT_TX_COMPLETE was generated. */
                         /* Continue to read data from USB. */
                         /* The amount of data received will be known when USB_STATUS_READ_COMPLETE event occurs*/
+                        g_uart_activity &= (uint32_t)~UART_TXING;
                         err = R_USB_Read(&g_basic1_ctrl, g_PCDC_rx_data, CDC_DATA_LEN, USB_CLASS_PCDC);
                         if (FSP_SUCCESS != err)
                         {
@@ -345,8 +336,9 @@ void dap_thread_entry(void *pvParameters)
                         }
                     }
                 }
-                continue;
             }
+            R_BSP_PinWrite((bsp_io_port_pin_t)g_bsp_leds.p_leds[LED_INDEX_VCOM],
+                           g_uart_activity != 0 ? BSP_IO_LEVEL_HIGH : BSP_IO_LEVEL_LOW);
         }
     }
 }
@@ -664,8 +656,6 @@ void user_uart_callback(uart_callback_args_t *p_args)
                 handle_error(1, "\r\n xQueueSend on g_uart_event_queue Failed \r\n");
             }
         }
-
-        led_uart_activity();
     }
     break;
     /* Last byte is transmitting, ready for more data. */
@@ -688,7 +678,6 @@ void user_uart_callback(uart_callback_args_t *p_args)
         {
             handle_error(1, "\r\n xQueueSend on g_uart_event_queue Failed \r\n");
         }
-        led_uart_activity();
     }
     break;
 
