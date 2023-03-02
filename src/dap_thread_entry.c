@@ -183,6 +183,7 @@ void dap_thread_entry(void *pvParameters)
     queue_evt_t q_instance;
     bsp_unique_id_t const *p_uid = R_BSP_UniqueIdGet();
     char g_print_buffer[33];
+    static uint32_t tx_len = 0;
 
     /* Enabled permanently for DAP and Led activity. */
     R_BSP_PinAccessEnable();
@@ -270,13 +271,19 @@ void dap_thread_entry(void *pvParameters)
 
                     if (0U < msg_waiting_count)
                     {
-                        /* Pull out as many item from queue as possible */
-                        uint32_t unload_count = (msg_waiting_count < sizeof(usb_tx_buffer)) ? msg_waiting_count : sizeof(usb_tx_buffer);
 
                         /* Wait for previous USB transfer to complete */
-                        BaseType_t err_semaphore = xSemaphoreTake(g_usb_tx_semaphore, portMAX_DELAY);
-                        if (pdTRUE == err_semaphore)
+                        BaseType_t err_semaphore = xSemaphoreTake(g_usb_tx_semaphore, 500 / portTICK_PERIOD_MS);
+
+                        if (pdTRUE != err_semaphore && tx_len != 0)
                         {
+                            // Last transmission did not complete (unknown reason). Re-transmit
+                            tx_len = tx_len;
+                        }
+                        else
+                        {
+                            /* Pull out as many item from queue as possible */
+                            uint32_t unload_count = (msg_waiting_count < sizeof(usb_tx_buffer)) ? msg_waiting_count : sizeof(usb_tx_buffer);
                             for (uint32_t itr = 0, idx = 0; itr < unload_count; itr++, idx += rx_data_size)
                             {
                                 if (pdTRUE != xQueueReceive(*p_queue, &usb_tx_buffer[idx], portMAX_DELAY))
@@ -284,14 +291,15 @@ void dap_thread_entry(void *pvParameters)
                                     handle_error(1, "\r\n Did not receive expected count of characters \r\n");
                                 }
                             }
+                            tx_len = unload_count * rx_data_size;
+                        }
 
-                            /* Write data to host machine */
-                            g_uart_activity |= UART_RXING;
-                            err = R_USB_Write(&g_basic1_ctrl, &usb_tx_buffer[0], (uint32_t)unload_count * rx_data_size, USB_CLASS_PCDC);
-                            if (FSP_SUCCESS != err)
-                            {
-                                handle_error(err, "\r\nR_USB_Write API failed.\r\n");
-                            }
+                        /* Write data to host machine */
+                        g_uart_activity |= UART_RXING;
+                        err = R_USB_Write(&g_basic1_ctrl, &usb_tx_buffer[0], tx_len, USB_CLASS_PCDC);
+                        if (FSP_SUCCESS != err)
+                        {
+                            handle_error(err, "\r\nR_USB_Write API failed.\r\n");
                         }
                     }
                     else
