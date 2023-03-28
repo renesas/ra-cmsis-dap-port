@@ -61,12 +61,12 @@
 #define USB_PCDC_HID_CD_LEN (107U)
 #define STRING_DESCRIPTOR0_LEN (4U)
 #define STRING_DESCRIPTOR1_LEN (16U)
-#define STRING_DESCRIPTOR2_LEN (49U)
-#define STRING_DESCRIPTOR3_LEN (43U)
+#define STRING_DESCRIPTOR2_LEN (44U)
+#define STRING_DESCRIPTOR3_LEN (32U)
 #define STRING_DESCRIPTOR4_LEN (22U)
 #define STRING_DESCRIPTOR5_LEN (18U)
 #define STRING_DESCRIPTOR6_LEN (28U)
-#define STRING_DESCRIPTOR7_LEN (33U)
+#define STRING_DESCRIPTOR7_LEN (22U)
 #define NUM_STRING_DESCRIPTOR (8U)
 
 /* Descriptor data Mask */
@@ -128,8 +128,8 @@ uint8_t g_apl_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] =
         3,                                             /*  4:bNumInterfaces */
         1,                                             /*  5:bConfigurationValue */
         0,                                             /*  6:iConfiguration */
-        USB_CF_RESERVED | USB_CF_SELFP,                /*  7:bmAttributes */
-        (10 / 2),                                      /*  8:MAXPower (2mA unit) */
+        USB_CF_RESERVED | USB_CF_BUSP,                 /*  7:bmAttributes */
+        (500 / 2),                                     /*  8:MAXPower (2mA unit) */
 
         /* Communication Device Class */
 
@@ -425,9 +425,9 @@ uint8_t g_apl_string_descriptor0[STRING_DESCRIPTOR0_LEN + (STRING_DESCRIPTOR0_LE
 
 /* iManufacturer */
 uint8_t g_apl_string_descriptor1[STRING_DESCRIPTOR1_LEN + (STRING_DESCRIPTOR1_LEN % 2)] =
-    {
+{
         STRING_DESCRIPTOR1_LEN, /*  0:bLength */
-        USB_DT_STRING,          /*  1:bDescriptorType */
+    USB_DT_STRING,                                              /*  1:bDescriptorType */
         'R',
         0x00, /*  2:wLANGID[0] */
         'e',

@@ -1,5 +1,5 @@
 /***********************************************************************************************************************
- * Copyright [2020-2022] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
+ * Copyright [2020-2023] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
  *
  * This software and documentation are supplied by Renesas Electronics America Inc. and may only be used with products
  * of Renesas Electronics Corp. and its affiliates ("Renesas").  No other uses are authorized.  Renesas products are
@@ -157,9 +157,9 @@ void usb_pstd_detach_process (usb_utr_t * p_utr)
 {
     uint16_t i;
 
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+ #if defined(USB_HIGH_SPEED_MODULE)
     hw_usb_clear_cnen(p_utr);
- #endif                                /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #endif                                /* defined (USB_HIGH_SPEED_MODULE) */
     /* Pull-up disable */
     hw_usb_pclear_dprpu(p_utr->ip);
 
@@ -187,7 +187,7 @@ void usb_pstd_detach_process (usb_utr_t * p_utr)
     /* Callback */
     if (USB_NULL != g_usb_pstd_driver.devdetach)
     {
-        (*g_usb_pstd_driver.devdetach)(p_utr, USB_NO_ARG, USB_NULL);
+        (*g_usb_pstd_driver.devdetach)(p_utr, USB_POWERED, USB_NULL);
     }
 
     usb_pstd_stop_clock(p_utr->ip);

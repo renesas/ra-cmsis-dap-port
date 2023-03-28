@@ -1,5 +1,5 @@
 /***********************************************************************************************************************
- * Copyright [2020-2022] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
+ * Copyright [2020-2023] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
  *
  * This software and documentation are supplied by Renesas Electronics America Inc. and may only be used with products
  * of Renesas Electronics Corp. and its affiliates ("Renesas").  No other uses are authorized.  Renesas products are
@@ -321,14 +321,14 @@ void hw_usb_hset_enb_sacke (usb_utr_t * ptr)
  ******************************************************************************/
 void hw_usb_hset_enb_pddetinte (usb_utr_t * ptr)
 {
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+ #if defined(USB_HIGH_SPEED_MODULE)
     if (USB_IP1 == ptr->ip)
     {
         ptr->ipp1->INTENB1 |= USB_PDDETINTE;
     }
- #else                                 /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #else                                 /* defined (USB_HIGH_SPEED_MODULE) */
     (void) *ptr;
- #endif /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #endif /* defined (USB_HIGH_SPEED_MODULE) */
 }
 
 /******************************************************************************
@@ -458,14 +458,14 @@ void hw_usb_hclear_sts_sack (usb_utr_t * ptr)
  ******************************************************************************/
 void hw_usb_hclear_sts_pddetint (usb_utr_t * ptr)
 {
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+ #if defined(USB_HIGH_SPEED_MODULE)
     if (USB_IP1 == ptr->ip)
     {
         ptr->ipp1->INTSTS1 = (uint16_t) ((~USB_PDDETINT) & INTSTS1_MASK);
     }
- #else                                 /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #else                                 /* defined (USB_HIGH_SPEED_MODULE) */
     (void) *ptr;
- #endif /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #endif /* defined (USB_HIGH_SPEED_MODULE) */
 }
 
 /******************************************************************************
@@ -675,14 +675,14 @@ void hw_usb_hset_usbspd (usb_utr_t * ptr, uint16_t devsel, uint16_t data)
  ******************************************************************************/
 void hw_usb_hset_dcpmode (usb_utr_t * ptr)
 {
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+ #if defined(USB_HIGH_SPEED_MODULE)
     if (USB_IP1 == ptr->ip)
     {
         ptr->ipp1->BCCTRL |= USB_DCPMODE;
     }
- #else                                 /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #else                                 /* defined (USB_HIGH_SPEED_MODULE) */
     (void) *ptr;
- #endif/* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #endif/* defined (USB_HIGH_SPEED_MODULE) */
 }
 
 /******************************************************************************
@@ -759,9 +759,9 @@ void hw_usb_hmodule_init (uint8_t usb_ip)
             /* none */
         }
 
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
-        USB_M0->PHYSLEW = 0x5;
- #endif                                /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #if defined(USB_SUPPORT_PHYSLEW)
+        USB_M0->PHYSLEW = USB_PHYSLEW_VALUE;
+ #endif                                /* defined(USB_SUPPORT_PHYSLEW) */
 
         USB_M0->SYSCFG |= USB_DCFM;
 
@@ -772,6 +772,14 @@ void hw_usb_hmodule_init (uint8_t usb_ip)
         sts = usb_chattaring((uint16_t *) &USB_M0->SYSSTS0);
 
         USB_M0->SYSCFG |= USB_USBE;
+
+ #if defined(USB_SUPPORT_HOCO_MODULE)
+        if (0 == (R_SYSTEM->SCKSCR & R_SYSTEM_SCKSCR_CKSEL_Msk))
+        {
+            /* Use HOCO */
+            hw_usb_set_uckselc();
+        }
+ #endif                                /* defined(USB_SUPPORT_HOCO_MODULE) */
 
         USB_M0->CFIFOSEL  = USB0_CFIFO_MBW;
         USB_M0->D0FIFOSEL = USB0_D0FIFO_MBW;
@@ -821,8 +829,16 @@ void hw_usb_hmodule_init (uint8_t usb_ip)
             }
         }
 
-        USB_M0->INTSTS1 &= ((~USB_OVRCRE) & INTSTS1_MASK);
-        USB_M0->INTENB0  = ((USB_BEMPE | USB_NRDYE) | USB_BRDYE);
+        /*
+         *  When R_USB_Open function was called immediately after calling R_USB_Close function,
+         *  D+ line keeps High level since VBUS shifts to High level before USB Periheral Device recognizes VBUS Low,
+         *  The Attach interrupt is genrated since D+ line keeps High level.
+         *  When "INTSTS1 = 0" is described code, the Attach interrupt is canceled. "INTSTS1 = 0" is NG.
+         *  The following code(INTSTS1) is correct.
+         */
+        USB_M0->INTSTS1 = ((~USB_OVRCRE) & INTSTS1_MASK);
+
+        USB_M0->INTENB0 = ((USB_BEMPE | USB_NRDYE) | USB_BRDYE);
  #if !defined(USB_CFG_OTG_USE)
         USB_M0->INTENB1 = (USB_OVRCRE | USB_ATTCH);
  #endif                                /* !defined (USB_CFG_OTG_USE) */
@@ -831,7 +847,7 @@ void hw_usb_hmodule_init (uint8_t usb_ip)
  #if USB_NUM_USBIP == 2
     else
     {
-  #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+  #if defined(USB_HIGH_SPEED_MODULE)
    #if USB_CFG_CLKSEL == USB_CFG_24MHZ
         USB_M1->PHYSET &= (uint16_t) ~USB_HSEB;
    #endif                              /* USB_CFG_CLKSEL == USB_CFG_24MHZ */
@@ -883,7 +899,7 @@ void hw_usb_hmodule_init (uint8_t usb_ip)
 
         USB_M1->BUSWAIT = (USB_CFG_BUSWAIT | USB_VALUE_0F00H);
         usb_cpu_delay_1us((uint16_t) 1); /* wait 1usec */
-  #endif /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+  #endif /* defined (USB_HIGH_SPEED_MODULE) */
 
         USB_M1->SOFCFG |= USB_INTL;
 
@@ -901,6 +917,7 @@ void hw_usb_hmodule_init (uint8_t usb_ip)
         USB_M1->D0FIFOSEL |= USB_BIGEND;
         USB_M1->D1FIFOSEL |= USB_BIGEND;
   #endif
+
         switch (sts)
         {
             case USB_FS_JSTS:          /* USB device already connected */
@@ -931,9 +948,9 @@ void hw_usb_hmodule_init (uint8_t usb_ip)
 
             case USB_SE0:              /* USB device no connected */
             {
-  #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+  #if defined(USB_HIGH_SPEED_MODULE)
                 USB_M1->INTENB1 = USB_ATTCH;
-  #endif /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+  #endif /* defined (USB_HIGH_SPEED_MODULE) */
                 break;
             }
 
@@ -943,11 +960,19 @@ void hw_usb_hmodule_init (uint8_t usb_ip)
             }
         }
 
-        USB_M1->INTSTS1 = 0;
+        /*
+         *  When R_USB_Open function was called immediately after calling R_USB_Close function,
+         *  D+ line keeps High level since VBUS shifts to High level before USB Periheral Device recognizes VBUS Low,
+         *  The Attach interrupt is genrated since D+ line keeps High level.
+         *  When "INTSTS1 = 0" is described code, the Attach interrupt is canceled. "INTSTS1 = 0" is NG.
+         *  The following code(INTSTS1) is correct.
+         */
+        USB_M1->INTSTS1 = (~USB_OVRCRE & INTSTS1_MASK);
+
         USB_M1->INTENB0 = (USB_BEMPE | USB_NRDYE | USB_BRDYE);
-  #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+  #if defined(USB_HIGH_SPEED_MODULE)
         USB_M1->INTENB1 = (USB_OVRCRE | USB_ATTCH);
-  #endif                               /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+  #endif                               /* defined (USB_HIGH_SPEED_MODULE) */
     }
  #endif                                /* USB_NUM_USBIP == 2 */
 

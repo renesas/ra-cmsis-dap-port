@@ -1,5 +1,5 @@
 /***********************************************************************************************************************
- * Copyright [2020-2022] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
+ * Copyright [2020-2023] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
  *
  * This software and documentation are supplied by Renesas Electronics America Inc. and may only be used with products
  * of Renesas Electronics Corp. and its affiliates ("Renesas").  No other uses are authorized.  Renesas products are
@@ -79,11 +79,13 @@
 
 #if !defined(USB_CFG_OTG_USE)
  #if USB_CFG_MODE == USB_CFG_HOST
-  #if defined(USB_CFG_PCDC_USE) || defined(USB_CFG_PHID_USE) || defined(USB_CFG_PMSC_USE) || defined(USB_CFG_PVND_USE)
-   #error  Can not enable these definitions(USB_CFG_PCDC_USE/USB_CFG_PHID_USE/USB_CFG_PMSC_USE/USB_CFG_PVND_USE) \
+  #if defined(USB_CFG_PCDC_USE) || defined(USB_CFG_PPRN_USE) || defined(USB_CFG_PHID_USE) || \
+    defined(USB_CFG_PMSC_USE) || defined(USB_CFG_PVND_USE)
+   #error                                                                                                                  \
+    Can not enable these definitions(USB_CFG_PCDC_USE/USB_CFG_PPRN_USE/USB_CFG_PHID_USE/USB_CFG_PMSC_USE/USB_CFG_PVND_USE) \
     when setting USB_MODE_HOST to USB_CFG_MODE in r_usb_basic_cfg.h.
 
-  #endif                               /* defined(USB_CFG_PCDC_USE || USB_CFG_PHID_USE || USB_CFG_PMSC_USE || USB_CFG_PVND_USE) */
+  #endif                               /* defined(USB_CFG_PCDC_USE || USB_CFG_PPRN_USE || USB_CFG_PHID_USE || USB_CFG_PMSC_USE || USB_CFG_PVND_USE) */
  #endif                                /* USB_CFG_MODE == USB_MODE_HOST */
 
  #if USB_CFG_MODE == USB_CFG_PERI
@@ -95,17 +97,22 @@
  #endif                                /* USB_CFG_MODE == USB_MODE_PERI */
 #endif                                 /* !defined(USB_CFG_OTG_USE) */
 
-#if ((!defined(BSP_MCU_GROUP_RA6M3)) && (!defined(BSP_MCU_GROUP_RA6M5)))
+#if (!defined(USB_HIGH_SPEED_MODULE))
  #if USB_CFG_ELECTRICAL == USB_CFG_ENABLE
   #error  Can not set USB_CFG_ENABLE to USB_CFG_ELECTRICAL when using other than Hi-speed module in r_usb_basic_cfg.h.
  #endif                                /* USB_CFG_ELECTRICAL == USB_CFG_ENABLE */
 
-#endif                                 /* ((!defined(BSP_MCU_GROUP_RA6M3)) && (!defined(BSP_MCU_GROUP_RA6M5))) */
+#endif                                 /* (!defined(USB_HIGH_SPEED_MODULE)) */
 
 /******************************************************************************
  * Exported global variables (to be accessed by other files)
  ******************************************************************************/
-usb_cfg_t * host_cfg;
+#if ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)
+static usb_cfg_t * g_p_usb_cfg_ip0;
+ #if defined(USB_HIGH_SPEED_MODULE)
+static usb_cfg_t * g_p_usb_cfg_ip1;
+ #endif                                /* defined (USB_HIGH_SPEED_MODULE) */
+#endif                                 /* ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST) */
 
 /******************************************************************************
  * Private global variables and functions
@@ -123,7 +130,17 @@ static usb_utr_t g_usb_irq_otg_msg;
 static usb_utr_t g_usb_otg_detach_msg;
 static uint16_t  g_usb_otg_frmnum_prev        = 0;
 volatile uint8_t g_usb_otg_chattering_counter = 0;
+volatile uint8_t g_usb_otg_hnp_counter        = 0;
 #endif                                 /* defined(USB_CFG_OTG_USE) */
+
+#if ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)
+static uint16_t g_usb_hstd_m0_reg_intenb0;
+static uint16_t g_usb_hstd_m0_reg_intenb1;
+ #if defined(USB_HIGH_SPEED_MODULE)
+static uint16_t g_usb_hstd_m1_reg_intenb0;
+static uint16_t g_usb_hstd_m1_reg_intenb1;
+ #endif                                /* defined(USB_HIGH_SPEED_MODULE) */
+#endif                                 /* (USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST */
 
 /******************************************************************************
  * Renesas Abstracted RSK functions
@@ -146,17 +163,17 @@ fsp_err_t usb_module_start (uint8_t ip_type)
     }
     else
     {
-#if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+#if defined(USB_HIGH_SPEED_MODULE)
         FSP_ERROR_RETURN(0 != R_MSTP->MSTPCRB_b.MSTPB12, FSP_ERR_USB_BUSY)
 
         /* Enable power for USBA */
         R_BSP_MODULE_START(FSP_IP_USBHS, 0);
-#else                                  /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+#else                                  /* defined (USB_HIGH_SPEED_MODULE) */
         FSP_ERROR_RETURN(0 != R_MSTP->MSTPCRB_b.MSTPB12, FSP_ERR_USB_BUSY)
 
         /* Enable power for USBA */
         R_BSP_MODULE_START(FSP_IP_USBFS, 0);
-#endif                                 /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+#endif                                 /* defined (USB_HIGH_SPEED_MODULE) */
     }
 
     return FSP_SUCCESS;
@@ -295,13 +312,13 @@ fsp_err_t usb_module_stop (uint8_t ip_type)
     }
     else if (USB_IP1 == ip_type)
     {
-#if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+#if defined(USB_HIGH_SPEED_MODULE)
         FSP_ERROR_RETURN(1 != R_MSTP->MSTPCRB_b.MSTPB12, FSP_ERR_USB_FAILED)
         FSP_ERROR_RETURN(0 == R_MSTP->MSTPCRB_b.MSTPB12, FSP_ERR_USB_NOT_OPEN)
 
         /* Enable power for USBA */
         R_BSP_MODULE_STOP(FSP_IP_USBHS, 0);
-#endif                                 /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+#endif                                 /* defined (USB_HIGH_SPEED_MODULE) */
     }
     else
     {
@@ -367,12 +384,15 @@ void usb_cpu_usbint_init (uint8_t ip_type, usb_cfg_t const * const cfg)
         R_BSP_IrqCfgEnable(cfg->irq_r, cfg->ipl_r, (void *) cfg);   /* USBR enable */
 
         R_BSP_IrqCfgEnable(cfg->irq, cfg->ipl, (void *) cfg);       /* USBI enable */
-        host_cfg = (usb_cfg_t *) cfg;
+
+#if ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)
+        g_p_usb_cfg_ip0 = (usb_cfg_t *) cfg;
+#endif  /*((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)*/
     }
 
     if (ip_type == USB_IP1)
     {
-#if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+#if defined(USB_HIGH_SPEED_MODULE)
 
         /* Interrupt enable register
          * b0 IEN0 Interrupt enable bit
@@ -391,8 +411,10 @@ void usb_cpu_usbint_init (uint8_t ip_type, usb_cfg_t const * const cfg)
  #endif /* ((USB_CFG_DTC == USB_CFG_ENABLE) || (USB_CFG_DMA == USB_CFG_ENABLE)) */
 
         R_BSP_IrqCfgEnable(cfg->hsirq, cfg->hsipl, (void *) cfg);       /* USBIR enable */
-        host_cfg = (usb_cfg_t *) cfg;
-#endif /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #if ((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)
+        g_p_usb_cfg_ip1 = (usb_cfg_t *) cfg;
+ #endif  /*((USB_CFG_MODE & USB_CFG_HOST) == USB_CFG_HOST)*/
+#endif /* defined (USB_HIGH_SPEED_MODULE) */
     }
 }
 
@@ -462,9 +484,18 @@ void usb_cpu_int_enable (void)
      * b6 IEN6 Interrupt enable bit
      * b7 IEN7 Interrupt enable bit
      */
-    R_BSP_IrqCfgEnable(host_cfg->irq, host_cfg->ipl, host_cfg); /* USBI enable */
+    if (USB_NULL != g_p_usb_cfg_ip0)
+    {
+        if (USB_MODE_HOST == g_p_usb_cfg_ip0->usb_mode)
+        {
+            R_BSP_IrqCfgEnable(g_p_usb_cfg_ip0->irq, g_p_usb_cfg_ip0->ipl, g_p_usb_cfg_ip0); /* USBI enable */
 
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+            USB_M0->INTENB0 = g_usb_hstd_m0_reg_intenb0;
+            USB_M0->INTENB1 = g_usb_hstd_m0_reg_intenb1;
+        }
+    }
+
+ #if defined(USB_HIGH_SPEED_MODULE)
 
     /* Interrupt enable register (USB1 USBIO enable)
      * b0 IEN0 Interrupt enable bit
@@ -476,8 +507,17 @@ void usb_cpu_int_enable (void)
      * b6 IEN6 Interrupt enable bit
      * b7 IEN7 Interrupt enable bit
      */
-    R_BSP_IrqCfgEnable(host_cfg->hsirq, host_cfg->hsipl, host_cfg); /* USBIR enable */
- #endif /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+    if (USB_NULL != g_p_usb_cfg_ip1)
+    {
+        if (USB_MODE_HOST == g_p_usb_cfg_ip1->usb_mode)
+        {
+            R_BSP_IrqCfgEnable(g_p_usb_cfg_ip1->hsirq, g_p_usb_cfg_ip1->hsipl, g_p_usb_cfg_ip1); /* USBIR enable */
+
+            USB_M1->INTENB0 = g_usb_hstd_m1_reg_intenb0;
+            USB_M1->INTENB1 = g_usb_hstd_m1_reg_intenb1;
+        }
+    }
+ #endif                                /* defined (USB_HIGH_SPEED_MODULE) */
 }
 
 /******************************************************************************
@@ -502,9 +542,20 @@ void usb_cpu_int_disable (void)
      * b6 IEN6 Interrupt enable bit
      * b7 IEN7 Interrupt enable bit
      */
-    R_BSP_IrqDisable(host_cfg->irq);   /* USBI enable */
+    if (USB_NULL != g_p_usb_cfg_ip0)
+    {
+        if (USB_MODE_HOST == g_p_usb_cfg_ip0->usb_mode)
+        {
+            g_usb_hstd_m0_reg_intenb0 = USB_M0->INTENB0;
+            g_usb_hstd_m0_reg_intenb1 = USB_M0->INTENB1;
+            USB_M0->INTENB0           = 0;
+            USB_M0->INTENB1           = 0;
 
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+            R_BSP_IrqDisable(g_p_usb_cfg_ip0->irq); /* USBI enable */
+        }
+    }
+
+ #if defined(USB_HIGH_SPEED_MODULE)
 
     /* Interrupt enable register (USB1 USBIO disable)
      * b0 IEN0 Interrupt enable bit
@@ -516,8 +567,19 @@ void usb_cpu_int_disable (void)
      * b6 IEN6 Interrupt enable bit
      * b7 IEN7 Interrupt enable bit
      */
-    R_BSP_IrqDisable(host_cfg->hsirq); /* USBIR enable */
- #endif /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+    if (USB_NULL != g_p_usb_cfg_ip1)
+    {
+        if (USB_MODE_HOST == g_p_usb_cfg_ip1->usb_mode)
+        {
+            g_usb_hstd_m1_reg_intenb0 = USB_M1->INTENB0;
+            g_usb_hstd_m1_reg_intenb1 = USB_M1->INTENB1;
+            USB_M1->INTENB0           = 0;
+            USB_M1->INTENB1           = 0;
+
+            R_BSP_IrqDisable(g_p_usb_cfg_ip1->hsirq); /* USBIR enable */
+        }
+    }
+ #endif /* defined (USB_HIGH_SPEED_MODULE) */
 }
 
 /******************************************************************************
@@ -751,6 +813,18 @@ VOID usb_otg_chattering_timer (ULONG args)
     g_usb_otg_chattering_counter++;
 }
 
+/*******************************************************************************
+ * Function Name: usb_otg_hnp_timer (10ms interval)
+ * Description  : The timer to detect that USB B-cable is detached when A device is Peripheral mode for USB IP0
+ * Arguments    : args  : No use
+ * Return Value : none
+ *******************************************************************************/
+VOID usb_otg_hnp_timer (ULONG args)
+{
+    (void) args;
+    g_usb_otg_hnp_counter++;
+}
+
   #if USB_NUM_USBIP == 2
 
 /*******************************************************************************
@@ -827,7 +901,7 @@ static void usbfs_usbi_isr (void)
  * End of function usbfs_usbi_isr
  ******************************************************************************/
 
-#if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+#if defined(USB_HIGH_SPEED_MODULE)
 
 /*******************************************************************************
  * Function Name: usbhs_usbir_isr
@@ -857,7 +931,7 @@ static void usbhs_usbir_isr (void)
 /******************************************************************************
  * End of function usbhs_usbir_isr
  ******************************************************************************/
-#endif                                 /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)*/
+#endif                                 /* defined (USB_HIGH_SPEED_MODULE)*/
 
 #if ((USB_CFG_MODE & USB_CFG_PERI) == USB_CFG_PERI)
 
@@ -906,7 +980,7 @@ static void usb_cpu_d1fifo_int_hand (void)
  * End of function usb_cpu_d1fifo_int_hand
  ******************************************************************************/
 
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+ #if defined(USB_HIGH_SPEED_MODULE)
 
 /******************************************************************************
  * Function Name   : usb2_cpu_d0fifo_int_hand
@@ -937,7 +1011,7 @@ static void usb2_cpu_d1fifo_int_hand (void)
 /******************************************************************************
  * End of function usb2_cpu_d1fifo_int_hand
  ******************************************************************************/
- #endif                                /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #endif                                /* defined (USB_HIGH_SPEED_MODULE) */
 
 #endif                                 /* USB_CFG_DTC == USB_CFG_ENABLE */
 
@@ -952,12 +1026,12 @@ bool usb_check_use_usba_module (usb_utr_t * ptr)
     bool ret_code = false;
 
     FSP_PARAMETER_NOT_USED(ptr);
-#if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+#if defined(USB_HIGH_SPEED_MODULE)
     if (USB_IP1 == ptr->ip)
     {
         ret_code = true;
     }
-#endif                                 /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+#endif                                 /* defined (USB_HIGH_SPEED_MODULE) */
 
     return ret_code;
 }                                      /* End of function usb_check_use_usba_module */
@@ -1015,9 +1089,9 @@ void usbhs_interrupt_handler (void)
     IRQn_Type irq = R_FSP_CurrentIrqGet();
     R_BSP_IrqStatusClear(irq);
 
-#if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+#if defined(USB_HIGH_SPEED_MODULE)
     usbhs_usbir_isr();
-#endif                                 /* defined (BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+#endif                                 /* defined  (USB_HIGH_SPEED_MODULE) */
 }
 
 void usbhs_d0fifo_handler (void)
@@ -1026,9 +1100,9 @@ void usbhs_d0fifo_handler (void)
     R_BSP_IrqStatusClear(irq);
 
 #if USB_CFG_DTC == USB_CFG_ENABLE
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+ #if defined(USB_HIGH_SPEED_MODULE)
     usb2_cpu_d0fifo_int_hand();
- #endif                                /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #endif                                /* defined (USB_HIGH_SPEED_MODULE) */
 #endif                                 /* USB_CFG_DTC == USB_CFG_ENABLE */
 }
 
@@ -1038,9 +1112,9 @@ void usbhs_d1fifo_handler (void)
     R_BSP_IrqStatusClear(irq);
 
 #if USB_CFG_DTC == USB_CFG_ENABLE
- #if defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5)
+ #if defined(USB_HIGH_SPEED_MODULE)
     usb2_cpu_d1fifo_int_hand();
- #endif                                /* defined(BSP_MCU_GROUP_RA6M3) || defined(BSP_MCU_GROUP_RA6M5) */
+ #endif                                /* defined (USB_HIGH_SPEED_MODULE) */
 #endif                                 /* USB_CFG_DTC == USB_CFG_ENABLE */
 }
 

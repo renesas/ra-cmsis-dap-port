@@ -10,9 +10,6 @@
  * @{
  **********************************************************************************************************************/
 
-/* Local Macros */
-#define MIN(i, j) (((i) < (j)) ? (i) : (j))
-
 /* Local Types  */
 typedef enum
 {
@@ -20,6 +17,9 @@ typedef enum
     PERIPHERAL_USB,
     PERIPHERAL_UART,
 } peripheral_t;
+
+#define UART_TXING 0x1
+#define UART_RXING 0x2
 
 typedef struct
 {
@@ -48,13 +48,13 @@ static usb_pcdc_ctrllinestate_t g_control_line_state = {
 };
 
 /* private function declarations */
-static void led_uart_activity(void);
 static void handle_error(fsp_err_t err, char *err_str);
 static void set_pcdc_line_coding(volatile usb_pcdc_linecoding_t *p_line_coding, const uart_cfg_t *p_uart_test_cfg);
 static void set_uart_line_coding_cfg(uart_cfg_t *p_uart_test_cfg, const volatile usb_pcdc_linecoding_t *p_line_coding);
 
 static baud_setting_t baud_setting;
 static bool enable_bitrate_modulation = true;
+static uint32_t g_uart_activity = 0x0;
 static uint32_t g_baud_rate = RESET_VALUE;
 static uint32_t error_rate_x_1000 = BAUD_ERROR_RATE;
 static uart_cfg_t g_uart_test_cfg;
@@ -144,23 +144,6 @@ static void set_uart_line_coding_cfg(uart_cfg_t *p_uart_test_cfg, const volatile
 }
 
 /*******************************************************************************************************************/ /**
-  *  @brief     Pulse the LED high when UART traffic is happening.
-  *  @param[IN] None
-
-  * @retval    None
-  **********************************************************************************************************************/
-static void led_uart_activity(void)
-{
-    int32_t ledindex = LED_INDEX_VCOM;
-
-    if (ledindex >= 0 && ledindex < g_bsp_leds.led_count)
-    {
-        R_BSP_PinWrite((bsp_io_port_pin_t)g_bsp_leds.p_leds[ledindex], BSP_IO_LEVEL_HIGH);
-        R_BSP_PinWrite((bsp_io_port_pin_t)g_bsp_leds.p_leds[ledindex], BSP_IO_LEVEL_LOW);
-    }
-}
-
-/*******************************************************************************************************************/ /**
  *  @brief       Closes the USB and UART module , Print and traps error.
  *  @param[IN]   status    error status
  *  @param[IN]   err_str   error string
@@ -200,24 +183,35 @@ void dap_thread_entry(void *pvParameters)
     queue_evt_t q_instance;
     bsp_unique_id_t const *p_uid = R_BSP_UniqueIdGet();
     char g_print_buffer[33];
+    static uint32_t tx_len = 0;
 
     /* Enabled permanently for DAP and Led activity. */
     R_BSP_PinAccessEnable();
 
-    /* Update the USB Serial Number with the device UID */
-    sprintf(g_print_buffer, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
-            p_uid->unique_id_bytes[0], p_uid->unique_id_bytes[1],
-            p_uid->unique_id_bytes[2], p_uid->unique_id_bytes[3],
-            p_uid->unique_id_bytes[4], p_uid->unique_id_bytes[5],
-            p_uid->unique_id_bytes[6], p_uid->unique_id_bytes[7],
-            p_uid->unique_id_bytes[8], p_uid->unique_id_bytes[9],
-            p_uid->unique_id_bytes[10], p_uid->unique_id_bytes[11],
-            p_uid->unique_id_bytes[12], p_uid->unique_id_bytes[13],
-            p_uid->unique_id_bytes[14], p_uid->unique_id_bytes[15]);
-
-    for (uint8_t index = 0; index < MIN(sizeof(p_uid->unique_id_bytes), g_apl_string_descriptor_serial_number[0]); index++)
+    if (g_apl_string_descriptor_serial_number[0] >= 4)
     {
-        g_apl_string_descriptor_serial_number[2 + (index * 2)] = (uint8_t)g_print_buffer[index];
+        uint32_t maxIndex = (uint32_t)((g_apl_string_descriptor_serial_number[0] - 2) / 2);
+
+        if (maxIndex > sizeof(p_uid->unique_id_bytes))
+        {
+            /* Remaining id bytes are fixed */
+            maxIndex = sizeof(p_uid->unique_id_bytes);
+        }
+        /* Update the USB Serial Number with the device UID */
+        sprintf(g_print_buffer, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+                p_uid->unique_id_bytes[0], p_uid->unique_id_bytes[1],
+                p_uid->unique_id_bytes[2], p_uid->unique_id_bytes[3],
+                p_uid->unique_id_bytes[4], p_uid->unique_id_bytes[5],
+                p_uid->unique_id_bytes[6], p_uid->unique_id_bytes[7],
+                p_uid->unique_id_bytes[8], p_uid->unique_id_bytes[9],
+                p_uid->unique_id_bytes[10], p_uid->unique_id_bytes[11],
+                p_uid->unique_id_bytes[12], p_uid->unique_id_bytes[13],
+                p_uid->unique_id_bytes[14], p_uid->unique_id_bytes[15]);
+
+        for (uint8_t index = 0; index < maxIndex; index++)
+        {
+            g_apl_string_descriptor_serial_number[2 + (index * 2)] = (uint8_t)g_print_buffer[index];
+        }
     }
 
     /* Open USB instance */
@@ -277,13 +271,19 @@ void dap_thread_entry(void *pvParameters)
 
                     if (0U < msg_waiting_count)
                     {
-                        /* Pull out as many item from queue as possible */
-                        uint32_t unload_count = (msg_waiting_count < sizeof(usb_tx_buffer)) ? msg_waiting_count : sizeof(usb_tx_buffer);
 
                         /* Wait for previous USB transfer to complete */
-                        BaseType_t err_semaphore = xSemaphoreTake(g_usb_tx_semaphore, portMAX_DELAY);
-                        if (pdTRUE == err_semaphore)
+                        BaseType_t err_semaphore = xSemaphoreTake(g_usb_tx_semaphore, 500 / portTICK_PERIOD_MS);
+
+                        if (pdTRUE != err_semaphore && tx_len != 0)
                         {
+                            // Last transmission did not complete (unknown reason). Re-transmit
+                            tx_len = tx_len;
+                        }
+                        else
+                        {
+                            /* Pull out as many item from queue as possible */
+                            uint32_t unload_count = (msg_waiting_count < sizeof(usb_tx_buffer)) ? msg_waiting_count : sizeof(usb_tx_buffer);
                             for (uint32_t itr = 0, idx = 0; itr < unload_count; itr++, idx += rx_data_size)
                             {
                                 if (pdTRUE != xQueueReceive(*p_queue, &usb_tx_buffer[idx], portMAX_DELAY))
@@ -291,17 +291,22 @@ void dap_thread_entry(void *pvParameters)
                                     handle_error(1, "\r\n Did not receive expected count of characters \r\n");
                                 }
                             }
+                            tx_len = unload_count * rx_data_size;
+                        }
 
-                            /* Write data to host machine */
-                            err = R_USB_Write(&g_basic1_ctrl, &usb_tx_buffer[0], (uint32_t)unload_count * rx_data_size, USB_CLASS_PCDC);
-                            if (FSP_SUCCESS != err)
-                            {
-                                handle_error(err, "\r\nR_USB_Write API failed.\r\n");
-                            }
+                        /* Write data to host machine */
+                        g_uart_activity |= UART_RXING;
+                        err = R_USB_Write(&g_basic1_ctrl, &usb_tx_buffer[0], tx_len, USB_CLASS_PCDC);
+                        if (FSP_SUCCESS != err)
+                        {
+                            handle_error(err, "\r\nR_USB_Write API failed.\r\n");
                         }
                     }
+                    else
+                    {
+                        g_uart_activity &= (uint32_t)~UART_RXING;
+                    }
                 }
-                continue;
             }
             if (PERIPHERAL_USB == q_instance.peripheral)
             {
@@ -319,7 +324,7 @@ void dap_thread_entry(void *pvParameters)
                                 handle_error(1, "\r\nxSemaphoreTake on g_uart_tx_mutex Failed \r\n");
                             }
                         }
-
+                        g_uart_activity |= UART_TXING;
                         err = R_SCI_UART_Write(&g_uart_ctrl, g_PCDC_rx_data, q_instance.u.data_size);
                         if (FSP_SUCCESS != err)
                         {
@@ -331,6 +336,7 @@ void dap_thread_entry(void *pvParameters)
                         /* Buffer is physically transmitted since UART_EVENT_TX_COMPLETE was generated. */
                         /* Continue to read data from USB. */
                         /* The amount of data received will be known when USB_STATUS_READ_COMPLETE event occurs*/
+                        g_uart_activity &= (uint32_t)~UART_TXING;
                         err = R_USB_Read(&g_basic1_ctrl, g_PCDC_rx_data, CDC_DATA_LEN, USB_CLASS_PCDC);
                         if (FSP_SUCCESS != err)
                         {
@@ -338,8 +344,9 @@ void dap_thread_entry(void *pvParameters)
                         }
                     }
                 }
-                continue;
             }
+            R_BSP_PinWrite((bsp_io_port_pin_t)g_bsp_leds.p_leds[LED_INDEX_VCOM],
+                           g_uart_activity != 0 ? BSP_IO_LEVEL_HIGH : BSP_IO_LEVEL_LOW);
         }
     }
 }
@@ -657,8 +664,6 @@ void user_uart_callback(uart_callback_args_t *p_args)
                 handle_error(1, "\r\n xQueueSend on g_uart_event_queue Failed \r\n");
             }
         }
-
-        led_uart_activity();
     }
     break;
     /* Last byte is transmitting, ready for more data. */
@@ -681,7 +686,6 @@ void user_uart_callback(uart_callback_args_t *p_args)
         {
             handle_error(1, "\r\n xQueueSend on g_uart_event_queue Failed \r\n");
         }
-        led_uart_activity();
     }
     break;
 

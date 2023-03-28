@@ -1,5 +1,5 @@
 /***********************************************************************************************************************
- * Copyright [2020-2022] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
+ * Copyright [2020-2023] Renesas Electronics Corporation and/or its affiliates.  All Rights Reserved.
  *
  * This software and documentation are supplied by Renesas Electronics America Inc. and may only be used with products
  * of Renesas Electronics Corp. and its affiliates ("Renesas").  No other uses are authorized.  Renesas products are
@@ -41,7 +41,7 @@ FSP_HEADER
  * Typedef definitions
  **********************************************************************************************************************/
 
-/** ICU private control block. DO NOT MODIFY.  Initialization occurs when R_ICU_ExternalIrqOpen is called. */
+/** USB private control block. DO NOT MODIFY.  Initialization occurs when R_USB_Open is called. */
 
 typedef usb_event_info_t usb_instance_ctrl_t;
 
