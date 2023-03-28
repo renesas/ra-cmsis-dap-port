@@ -43,8 +43,13 @@ The following connections need to be made between the EK-RA4M2 and the target bo
 
 Due to the pitch of the pins on a standard Cortex-M debug header, you may find it easier to use an adapter to allow use of a "normal" debug cable for plugging into the target board, such as Embedded Artists' 10-pin to 20-pin JTAG Adapter (https://www.embeddedartists.com/products/10-pin-to-20-pin-jtag-adapter/)
 
+### Pictures
+The below show an EK-RA4M2 board being used as a CMSIS-DAP debug probe for debugging an EK-RA4M3 board :
+
+[![EK-RA4M2 in use as a CMSIS-DAP Probe #1](/pics/ProbeConnections_1-sm.jpg)](/pics/ProbeConnections_1.jpg) [![EK-RA4M2 in use as a CMSIS-DAP Probe #2](/pics/ProbeConnections_2-sm.jpg)](/pics/ProbeConnections_2.jpg)
+
 ### Tools
-The project is currently intended to be built using FSP 4.3.0 and e2 studio 2023-01, available from https://github.com/renesas/fsp/releases/tag/v4.3.0.
+The project is currently intended to be built using FSP 4.3.0 and e<sup>2</sup> studio 2023-01, available from https://github.com/renesas/fsp/releases/tag/v4.3.0.
 
 It has been tested with a variety of RA Family MCUs using 
 * Keil MDK 5.38a in conjunction with the Renesas RA CMSIS Device Family Pack (DFP) providing device support including flash loaders.
