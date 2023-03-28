@@ -49,7 +49,7 @@ The below show an EK-RA4M2 board being used as a CMSIS-DAP debug probe for debug
 [![EK-RA4M2 in use as a CMSIS-DAP Probe #1](/pics/ProbeConnections_1-sm.jpg)](/pics/ProbeConnections_1.jpg) [![EK-RA4M2 in use as a CMSIS-DAP Probe #2](/pics/ProbeConnections_2-sm.jpg)](/pics/ProbeConnections_2.jpg)
 
 ### Tools
-The project is currently intended to be built using FSP 4.3.0 and e2 studio 2023-01, available from https://github.com/renesas/fsp/releases/tag/v4.3.0.
+The project is currently intended to be built using FSP 4.3.0 and e<sup>2</sup> studio 2023-01, available from https://github.com/renesas/fsp/releases/tag/v4.3.0.
 
 It has been tested with a variety of RA Family MCUs using 
 * Keil MDK 5.38a in conjunction with the Renesas RA CMSIS Device Family Pack (DFP) providing device support including flash loaders.
