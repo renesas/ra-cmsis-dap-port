@@ -19,7 +19,7 @@ This port is based on the CMSIS-DAP 2.1.1 sources from the CMSIS 5.9.0 Pack file
 The port provides a VCOM (virtual COM) port, allowing a UART to USB bridge link from the target device'a UART to the host PC via the CMSIS-DAP Probe.
 
 ### VID / PID 
-The port is configured to use USB VID = 0x45B and PID = 0x201D. This is the Renesas VID and a PID reserved for this CMSIS-DAP port.
+The port is configured to use USB VID = 0x45B and PID = 0x201D. This is the Renesas VID and PID reserved for this CMSIS-DAP port.
 
 ### LED Usage
 The port uses the LEDs fitted to the EK-RA4M2 as follows:
