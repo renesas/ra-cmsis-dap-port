@@ -57,6 +57,7 @@
             <slot name="P609" secure="false"/>
             <slot name="P610" secure="false"/>
         </peripheral>
+        <peripheral name="USB_FS" security=""/>
         <peripheral name="SCI2" group="SCI" security=""/>
         <peripheral name="ICU">
             <slot name="IRQ0" secure="false"/>
@@ -65,6 +66,8 @@
             <slot name="IRQ3" secure="false"/>
             <slot name="IRQ4" secure="false"/>
             <slot name="IRQ5" secure="false"/>
+            <slot name="IRQ6" secure="false"/>
+            <slot name="IRQ7" secure="false"/>
         </peripheral>
     </partition>
 </azone>

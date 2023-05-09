@@ -305,10 +305,14 @@ FSP Configuration
     Bulk Out Pipe: USB PIPE4
     Interrupt In Pipe: USB PIPE8
     
-  Module "USB PHID (r_usb_phid)"
-    Interrupt In Pipe: USB PIPE6
-    Interrupt Out Pipe: USB PIPE7
+  Module "UART (r_sci_uart)"
+    Parameter Checking: Default (BSP)
+    FIFO Support: Disable
+    DTC Support: Disable
+    Flow Control Support: Disable
+    RS-485 Support: Disable
     
+  Module "USB PVND (r_usb_pvnd)"
   Module "USB (r_usb_basic)"
     Parameter Checking: Default (BSP)
     PLL Frequency: Not Supported
@@ -321,17 +325,10 @@ FSP Configuration
     Continuous Transfer Mode: Not Supported
     LDO Regulator: Not Supported
     DMA Support: Disabled
-    DMA Source Address: FS Address
-    DMA Destination Address: FS Address
+    DMA Source Address: DMA Disabled
+    DMA Destination Address: DMA Disabled
     USB Compliance Test mode: Disabled
     USB TPL table name: NULL
-    
-  Module "UART (r_sci_uart)"
-    Parameter Checking: Default (BSP)
-    FIFO Support: Disable
-    DTC Support: Disable
-    Flow Control Support: Disable
-    RS-485 Support: Disable
     
   FreeRTOS
     General: Custom FreeRTOSConfig.h: 
@@ -424,20 +421,24 @@ FSP Configuration
       Instance "g_pcdc USB PCDC (r_usb_pcdc)"
         Name: g_pcdc
         
-      Instance "g_phid0 USB PHID (r_usb_phid)"
-        Name: g_phid0
+      Instance "g_pvnd0 USB PVND (r_usb_pvnd)"
+        Name: g_pvnd0
         
         Instance "g_basic1 USB (r_usb_basic)"
           Name: g_basic1
           USB Mode: Peri mode
           USB Speed: Full Speed
           USB Module Number: USB_IP0 Port
-          USB Class Type: Peripheral Human Interface Device Class
+          USB Device Class: Peripheral Vendor Class
           USB Descriptor: g_usb_descriptor
           USB Compliance Callback: NULL
           USBFS Interrupt Priority: Priority 12
           USBFS Resume Priority: Priority 12
+          USBFS D0FIFO Interrupt Priority: Priority 12
+          USBFS D1FIFO Interrupt Priority: Priority 12
           USBHS Interrupt Priority: Not Supported
+          USBHS D0FIFO Interrupt Priority: Not Supported
+          USBHS D1FIFO Interrupt Priority: Not Supported
           USB RTOS Callback: usb_composite_callback
           USB Callback Context: NULL
           
@@ -467,29 +468,29 @@ FSP Configuration
       Interrupts: Transmit End Interrupt Priority: Priority 12
       Interrupts: Error Interrupt Priority: Priority 12
       
-  Object "g_uart_event_queue Queue"
-    Symbol: g_uart_event_queue
-    Item Size (Bytes): 8
-    Queue Length (Items): 512
+  Object "g_sem_uart_tx Binary Semaphore"
+    Symbol: g_sem_uart_tx
     Memory Allocation: Static
     
-  Object "g_uart_tx_mutex Binary Semaphore"
-    Symbol: g_uart_tx_mutex
+  Object "g_sem_pcdc_tx Binary Semaphore"
+    Symbol: g_sem_pcdc_tx
     Memory Allocation: Static
     
-  Object "g_usb_tx_semaphore Binary Semaphore"
-    Symbol: g_usb_tx_semaphore
-    Memory Allocation: Static
-    
-  Object "g_usb_tx_queue Queue"
-    Symbol: g_usb_tx_queue
+  Object "g_queue_uart_tx_8 Queue"
+    Symbol: g_queue_uart_tx_8
     Item Size (Bytes): 1
-    Queue Length (Items): 512
+    Queue Length (Items): 2048
     Memory Allocation: Static
     
-  Object "g_usb_tx_x2_queue Queue"
-    Symbol: g_usb_tx_x2_queue
+  Object "g_queue_uart_tx_16 Queue"
+    Symbol: g_queue_uart_tx_16
     Item Size (Bytes): 2
-    Queue Length (Items): 512
+    Queue Length (Items): 2048
+    Memory Allocation: Static
+    
+  Object "g_queue_usb_event Queue"
+    Symbol: g_queue_usb_event
+    Item Size (Bytes): 4
+    Queue Length (Items): 20
     Memory Allocation: Static
     

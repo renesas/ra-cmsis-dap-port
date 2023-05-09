@@ -4,7 +4,7 @@
  ******************************************************************************/
 #include "r_usb_basic.h"
 #include "r_usb_basic_api.h"
-#include "r_usb_phid_api.h"
+#include "usb_composite.h"
 
 /******************************************************************************
  Macro definitions
@@ -20,12 +20,7 @@
 /* Vendor ID */
 #define USB_VENDORID (0x045BU)
 /* Product ID */
-#define USB_PRODUCTID (0x0201DU)
-
-#define USB_IFPROTOCOL (USB_IFPRO_NONE)
-#define ITEM_LEN (35U)
-#define MXPS (64U)
-#define NUM_EP (2U)
+#define USB_PRODUCTID (0x0201FU)
 
 /* Miscellaneous Device Class */
 #define USB_MISC_CLASS (0xEF)
@@ -58,7 +53,8 @@
 
 /* Descriptor length */
 #define USB_DQD_LEN (10U)
-#define USB_PCDC_HID_CD_LEN (107U)
+#define USB_DD_BLENGTH (18U)
+#define USB_PCDC_PVND_CD_LEN (105U)
 #define STRING_DESCRIPTOR0_LEN (4U)
 #define STRING_DESCRIPTOR1_LEN (16U)
 #define STRING_DESCRIPTOR2_LEN (44U)
@@ -67,13 +63,22 @@
 #define STRING_DESCRIPTOR5_LEN (18U)
 #define STRING_DESCRIPTOR6_LEN (28U)
 #define STRING_DESCRIPTOR7_LEN (22U)
-#define NUM_STRING_DESCRIPTOR (8U)
+#define STRING_MSFT100_LEN     (18U)
+#define NUM_STRING_DESCRIPTOR  (0xEF)
 
 /* Descriptor data Mask */
 #define USB_UCHAR_MAX (0xffU)
 #define USB_W_TOTAL_LENGTH_MASK (256U)
 #define USB_W_MAX_PACKET_SIZE_MASK (64U)
 #define USB_PCDC_BCD_CDC_MASK (256U)
+
+/* Definitions for Vendor Class */
+#define USB_VALUE_256                 (256U)
+#define USB_VALUE_FFH                 (0xFFU)
+#define USB_VENDOR_CODE               (USB_VALUE_FFH)
+#define USB_MXPS_BULK_FULL            (64U)
+#define USB_MXPS_BULK_HI              (512U)
+#define USB_MXPS_INT                  (64U)
 
 /* Standard Device Descriptor */
 uint8_t g_apl_device[USB_DD_BLENGTH + (USB_DD_BLENGTH % 2)] =
@@ -119,24 +124,25 @@ uint8_t g_apl_qualifier_descriptor[USB_DQD_LEN + (USB_DQD_LEN % 2)] =
  *  Configuration Or Other_Speed_Configuration Descriptor   *
  ************************************************************/
 /* For Full-Speed */
-uint8_t g_apl_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] =
+uint8_t g_apl_configuration[USB_PCDC_PVND_CD_LEN + (USB_PCDC_PVND_CD_LEN % 2)] =
     {
         USB_CD_BLENGTH,                                /*  0:bLength */
         USB_SOFT_CHANGE,                               /*  1:bDescriptorType */
-        USB_PCDC_HID_CD_LEN % USB_W_TOTAL_LENGTH_MASK, /*  2:wTotalLength(L) */
-        USB_PCDC_HID_CD_LEN / USB_W_TOTAL_LENGTH_MASK, /*  3:wTotalLength(H) */
+        USB_PCDC_PVND_CD_LEN % USB_W_TOTAL_LENGTH_MASK,/*  2:wTotalLength(L) */
+        USB_PCDC_PVND_CD_LEN / USB_W_TOTAL_LENGTH_MASK,/*  3:wTotalLength(H) */
         3,                                             /*  4:bNumInterfaces */
         1,                                             /*  5:bConfigurationValue */
         0,                                             /*  6:iConfiguration */
         USB_CF_RESERVED | USB_CF_BUSP,                 /*  7:bmAttributes */
         (500 / 2),                                     /*  8:MAXPower (2mA unit) */
 
+
         /* Communication Device Class */
 
         /* Interface Association Descriptor (IAD) */
         0x08,                                     /*  0:bLength */
         USB_IAD_TYPE,                             /*  1:bDescriptorType */
-        0x00,                                     /*  2:bFirstInterface */
+        INTERFACE_PCDC_FIRST,                     /*  2:bFirstInterface */
         0x02,                                     /*  3:bInterfaceCount */
         USB_IFCLS_CDCC,                           /*  4:bFunctionClass  */
         USB_PCDC_CLASS_SUBCLASS_CODE_ABS_CTR_MDL, /* 5:bFunctionSubClass */
@@ -146,7 +152,7 @@ uint8_t g_apl_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] =
         /* Interface Descriptor */
         USB_ID_BLENGTH,                           /*  0:bLength */
         USB_DT_INTERFACE,                         /*  1:bDescriptor */
-        0,                                        /*  2:bInterfaceNumber */
+        INTERFACE_PCDC_FIRST,                     /*  2:bInterfaceNumber */
         0,                                        /*  3:bAlternateSetting */
         1,                                        /*  4:bNumEndpoints */
         USB_IFCLS_CDCC,                           /*  5:bInterfaceClass */
@@ -187,9 +193,9 @@ uint8_t g_apl_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] =
         /* Endpoint Descriptor 0 */
         USB_ED_BLENGTH,      /*  0:bLength */
         USB_DT_ENDPOINT,     /*  1:bDescriptorType */
-        USB_EP_IN | USB_EP3, /*  2:bEndpointAddress */
+        USB_EP_IN | USB_EP1, /*  2:bEndpointAddress */
         USB_EP_INT,          /*  3:bmAttribute */
-        16,                  /*  4:wMAXPacketSize_lo */
+        USB_W_MAX_PACKET_SIZE_MASK,                  /*  4:wMAXPacketSize_lo */
         0,                   /*  5:wMAXPacketSize_hi */
         0x10,                /*  6:bInterval */
 
@@ -207,7 +213,7 @@ uint8_t g_apl_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] =
         /* Endpoint Descriptor 0 */
         USB_ED_BLENGTH,             /*  0:bLength */
         USB_DT_ENDPOINT,            /*  1:bDescriptorType */
-        USB_EP_IN | USB_EP4,        /*  2:bEndpointAddress */
+        USB_EP_IN | USB_EP2,        /*  2:bEndpointAddress */
         USB_EP_BULK,                /*  3:bmAttribute */
         USB_W_MAX_PACKET_SIZE_MASK, /*  4:wMAXPacketSize_lo */
         0,                          /*  5:wMAXPacketSize_hi */
@@ -216,74 +222,74 @@ uint8_t g_apl_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] =
         /* Endpoint Descriptor 1 */
         USB_ED_BLENGTH,             /*  0:bLength */
         USB_DT_ENDPOINT,            /*  1:bDescriptorType */
-        USB_EP_OUT | USB_EP5,       /*  2:bEndpointAddress */
+        USB_EP_OUT | USB_EP3,       /*  2:bEndpointAddress */
         USB_EP_BULK,                /*  3:bmAttribute */
         USB_W_MAX_PACKET_SIZE_MASK, /*  4:wMAXPacketSize_lo */
         0,                          /*  5:wMAXPacketSize_hi */
         0,                          /*  6:bInterval */
 
-        /* HID Class */
-
+        /* Vendor specific Device Class */
+        
         /* Interface Descriptor */
         USB_ID_BLENGTH,   /*  0:bLength */
         USB_DT_INTERFACE, /*  1:bDescriptor */
-        2,                /*  2:bInterfaceNumber */
+        INTERFACE_CMSIS_DAP,/*  2:bInterfaceNumber */
         0,                /*  3:bAlternateSetting */
-        NUM_EP,           /*  4:bNumEndpoints */
-        USB_IFCLS_HID,    /*  5:bInterfaceClass */
-        USB_IFSUB_NOBOOT, /*  6:bInterfaceSubClass */
-        USB_IFPROTOCOL,   /*  7:bInterfaceProtocol */
+        3,                /*  4:bNumEndpoints */
+        USB_VENDOR_CODE,  /*  5:bInterfaceClass */
+        0x00,             /*  6:bInterfaceSubClass */
+        0x00,             /*  7:bInterfaceProtocol */
         3,                /*  8:iInterface */
 
-        /* HID Descriptor */
-        9,                         /*  0:bLength */
-        USB_DT_TYPE_HIDDESCRIPTOR, /*  1:bDescriptor */
-        0x00,                      /*  2:HID Ver */
-        0x01,                      /*  3:HID Ver */
-        0x00,                      /*  4:bCountryCode */
-        0x01,                      /*  5:bNumDescriptors */
-        0x22,                      /*  6:bDescriptorType */
-        ITEM_LEN,                  /*  7:wItemLength(L) */
-        0x00,                      /*  8:wItemLength(H) */
-
         /* Endpoint Descriptor 0 */
-        USB_ED_BLENGTH,      /*  0:bLength */
-        USB_DT_ENDPOINT,     /*  1:bDescriptorType */
-        USB_EP_IN | USB_EP1, /*  2:bEndpointAddress */
-        USB_EP_INT,          /*  3:bmAttribute */
-        MXPS,                /*  4:wMAXPacketSize_lo */
-        0,                   /*  5:wMAXPacketSize_hi */
-        0x01,                /*  6:bInterval */
+        USB_ED_BLENGTH,                                /*  0:bLength */
+        USB_DT_ENDPOINT,                               /*  1:bDescriptorType */
+        (uint8_t)(USB_EP_OUT | USB_EP4),                /*  2:bEndpointAddress */
+        USB_EP_BULK,                                   /*  3:bmAttribute */
+        (uint8_t)(USB_MXPS_BULK_FULL % USB_VALUE_256), /*  4:wMaxPacketSize_lo */
+        (uint8_t)(USB_MXPS_BULK_FULL / USB_VALUE_256), /*  5:wMaxPacketSize_hi */
+        0,                                             /*  6:bInterval */
 
         /* Endpoint Descriptor 1 */
-        USB_ED_BLENGTH,       /*  0:bLength */
-        USB_DT_ENDPOINT,      /*  1:bDescriptorType */
-        USB_EP_OUT | USB_EP1, /*  2:bEndpointAddress */
-        USB_EP_INT,           /*  3:bmAttribute */
-        MXPS,                 /*  4:wMAXPacketSize_lo */
-        0,                    /*  5:wMAXPacketSize_hi */
-        0x01,                 /*  6:bInterval */
+        USB_ED_BLENGTH,                                /*  0:bLength */
+        USB_DT_ENDPOINT,                               /*  1:bDescriptorType */
+        (uint8_t)(USB_EP_IN | USB_EP5),               /*  2:bEndpointAddress */
+        USB_EP_BULK,                                   /*  3:bmAttribute */
+        (uint8_t)(USB_MXPS_BULK_FULL % USB_VALUE_256), /*  4:wMaxPacketSize_lo */
+        (uint8_t)(USB_MXPS_BULK_FULL / USB_VALUE_256), /*  5:wMaxPacketSize_hi */
+        0,                                             /*  6:bInterval */
+        
+        
+        /* Endpoint Descriptor 2 */
+        USB_ED_BLENGTH,                              /*  0:bLength */
+        USB_DT_ENDPOINT,                             /*  1:bDescriptorType */
+        (uint8_t)(USB_EP_IN | USB_EP6),             /*  2:bEndpointAddress */
+        USB_EP_BULK,                                 /*  3:bmAttribute */
+        (uint8_t)(USB_MXPS_BULK_FULL % USB_VALUE_256), /*  4:wMaxPacketSize_lo */
+        (uint8_t)(USB_MXPS_BULK_FULL / USB_VALUE_256), /*  5:wMaxPacketSize_hi */
+        0,  
+
 };
 
 /* For High-Speed */
-uint8_t g_apl_hs_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] =
+uint8_t g_apl_hs_configuration[USB_PCDC_PVND_CD_LEN + (USB_PCDC_PVND_CD_LEN % 2)] =
     {
         USB_CD_BLENGTH,                                /*  0:bLength */
         USB_SOFT_CHANGE,                               /*  1:bDescriptorType */
-        USB_PCDC_HID_CD_LEN % USB_W_TOTAL_LENGTH_MASK, /*  2:wTotalLength(L) */
-        USB_PCDC_HID_CD_LEN / USB_W_TOTAL_LENGTH_MASK, /*  3:wTotalLength(H) */
+        USB_PCDC_PVND_CD_LEN % USB_W_TOTAL_LENGTH_MASK, /*  2:wTotalLength(L) */
+        USB_PCDC_PVND_CD_LEN / USB_W_TOTAL_LENGTH_MASK, /*  3:wTotalLength(H) */
         3,                                             /*  4:bNumInterfaces */
         1,                                             /*  5:bConfigurationValue */
         0,                                             /*  6:iConfiguration */
         USB_CF_RESERVED | USB_CF_SELFP,                /*  7:bmAttributes */
-        (10 / 2),                                      /*  8:MAXPower (2mA unit) */
+        (500 / 2),                                     /*  8:MAXPower (2mA unit) */
 
         /* Communication Device Class */
 
         /* Interface Association Descriptor (IAD) */
         0x08,                                     /*  0:bLength */
         USB_IAD_TYPE,                             /*  1:bDescriptorType */
-        0x00,                                     /*  2:bFirstInterface */
+        INTERFACE_PCDC_FIRST,                     /*  2:bFirstInterface */
         0x02,                                     /*  3:bInterfaceCount */
         USB_IFCLS_CDCC,                           /*  4:bFunctionClass  */
         USB_PCDC_CLASS_SUBCLASS_CODE_ABS_CTR_MDL, /* 5:bFunctionSubClass */
@@ -293,7 +299,7 @@ uint8_t g_apl_hs_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] 
         /* Interface Descriptor */
         USB_ID_BLENGTH,                           /*  0:bLength */
         USB_DT_INTERFACE,                         /*  1:bDescriptor */
-        0,                                        /*  2:bInterfaceNumber */
+        INTERFACE_PCDC_FIRST,                     /*  2:bInterfaceNumber */
         0,                                        /*  3:bAlternateSetting */
         1,                                        /*  4:bNumEndpoints */
         USB_IFCLS_CDCC,                           /*  5:bInterfaceClass */
@@ -305,8 +311,8 @@ uint8_t g_apl_hs_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] 
         5,                                        /*  0:bLength */
         USB_PCDC_CS_INTERFACE,                    /*  1:bDescriptorType */
         USB_PCDC_DT_SUBTYPE_HEADER_FUNC,          /*  2:bDescriptorSubtype */
-        USB_PCDC_BCD_CDC % USB_PCDC_BCD_CDC_MASK, /*  3:bcdCDC_lo */
-        USB_PCDC_BCD_CDC / USB_PCDC_BCD_CDC_MASK, /*  4:bcdCDC_hi */
+        USB_PCDC_BCD_CDC % USB_W_TOTAL_LENGTH_MASK, /*  3:bcdCDC_lo */
+        USB_PCDC_BCD_CDC / USB_W_TOTAL_LENGTH_MASK, /*  4:bcdCDC_hi */
 
         /* Communications Class Functional Descriptorss */
         4,                                            /*  0:bLength */
@@ -332,11 +338,11 @@ uint8_t g_apl_hs_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] 
         1, /*  4:bDataInterface */
 
         /* Endpoint Descriptor 0 */
-        USB_ED_BLENGTH,      /*  0:bLength */
+        7,                   /*  0:bLength */
         USB_DT_ENDPOINT,     /*  1:bDescriptorType */
-        USB_EP_IN | USB_EP3, /*  2:bEndpointAddress */
+        USB_EP_IN | USB_EP1, /*  2:bEndpointAddress */
         USB_EP_INT,          /*  3:bmAttribute */
-        16,                  /*  4:wMAXPacketSize_lo */
+        USB_W_MAX_PACKET_SIZE_MASK,                  /*  4:wMAXPacketSize_lo */
         0,                   /*  5:wMAXPacketSize_hi */
         0x10,                /*  6:bInterval */
 
@@ -354,7 +360,7 @@ uint8_t g_apl_hs_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] 
         /* Endpoint Descriptor 0 */
         USB_ED_BLENGTH,      /*  0:bLength */
         USB_DT_ENDPOINT,     /*  1:bDescriptorType */
-        USB_EP_IN | USB_EP4, /*  2:bEndpointAddress */
+        USB_EP_IN | USB_EP2, /*  2:bEndpointAddress */
         USB_EP_BULK,         /*  3:bmAttribute */
         0,                   /*  4:wMAXPacketSize_lo */
         2,                   /*  5:wMAXPacketSize_hi */
@@ -363,53 +369,54 @@ uint8_t g_apl_hs_configuration[USB_PCDC_HID_CD_LEN + (USB_PCDC_HID_CD_LEN % 2)] 
         /* Endpoint Descriptor 1 */
         USB_ED_BLENGTH,       /*  0:bLength */
         USB_DT_ENDPOINT,      /*  1:bDescriptorType */
-        USB_EP_OUT | USB_EP5, /*  2:bEndpointAddress */
+        USB_EP_OUT | USB_EP3, /*  2:bEndpointAddress */
         USB_EP_BULK,          /*  3:bmAttribute */
         0,                    /*  4:wMAXPacketSize_lo */
         2,                    /*  5:wMAXPacketSize_hi */
         0,                    /*  6:bInterval */
 
-        /* HID Class */
-
+        /* Vendor specific Device Class */
+        
         /* Interface Descriptor */
         USB_ID_BLENGTH,   /*  0:bLength */
         USB_DT_INTERFACE, /*  1:bDescriptor */
-        2,                /*  2:bInterfaceNumber */
+        INTERFACE_CMSIS_DAP,/*  2:bInterfaceNumber */
         0,                /*  3:bAlternateSetting */
-        NUM_EP,           /*  4:bNumEndpoints */
-        USB_IFCLS_HID,    /*  5:bInterfaceClass */
-        USB_IFSUB_NOBOOT, /*  6:bInterfaceSubClass */
-        USB_IFPROTOCOL,   /*  7:bInterfaceProtocol */
-        3,                /*  8:iInterface */
-
-        /* HID Descriptor */
-        9,                         /*  0:bLength */
-        USB_DT_TYPE_HIDDESCRIPTOR, /*  1:bDescriptor */
-        0x00,                      /*  2:HID Ver */
-        0x01,                      /*  3:HID Ver */
-        0x00,                      /*  4:bCountryCode */
-        0x01,                      /*  5:bNumDescriptors */
-        0x22,                      /*  6:bDescriptorType */
-        ITEM_LEN,                  /*  7:wItemLength(L) */
-        0x00,                      /*  8:wItemLength(H) */
+        3,                /*  4:bNumEndpoints */
+        USB_VENDOR_CODE,  /*  5:bInterfaceClass */
+        0x00,             /*  6:bInterfaceSubClass */
+        0x00,             /*  7:bInterfaceProtocol */
+        0,                /*  8:iInterface */
 
         /* Endpoint Descriptor 0 */
-        USB_ED_BLENGTH,      /*  0:bLength */
-        USB_DT_ENDPOINT,     /*  1:bDescriptorType */
-        USB_EP_IN | USB_EP1, /*  2:bEndpointAddress */
-        USB_EP_INT,          /*  3:bmAttribute */
-        MXPS,                /*  4:wMAXPacketSize_lo */
-        0,                   /*  5:wMAXPacketSize_hi */
-        0x01,                /*  6:bInterval */
+        USB_ED_BLENGTH,                              /*  0:bLength */
+        USB_DT_ENDPOINT,                             /*  1:bDescriptorType */
+        (uint8_t)(USB_EP_IN | USB_EP4),              /*  2:bEndpointAddress */
+        USB_EP_BULK,                                 /*  3:bmAttribute */
+        (uint8_t)(USB_MXPS_BULK_HI % USB_VALUE_256), /*  4:wMaxPacketSize_lo */
+        (uint8_t)(USB_MXPS_BULK_HI / USB_VALUE_256), /*  5:wMaxPacketSize_hi */
+        0,                                           /*  6:bInterval */
 
         /* Endpoint Descriptor 1 */
-        USB_ED_BLENGTH,       /*  0:bLength */
-        USB_DT_ENDPOINT,      /*  1:bDescriptorType */
-        USB_EP_OUT | USB_EP1, /*  2:bEndpointAddress */
-        USB_EP_INT,           /*  3:bmAttribute */
-        MXPS,                 /*  4:wMAXPacketSize_lo */
-        0,                    /*  5:wMAXPacketSize_hi */
-        0x01,                 /*  6:bInterval */
+        USB_ED_BLENGTH,                              /*  0:bLength */
+        USB_DT_ENDPOINT,                             /*  1:bDescriptorType */
+        (uint8_t)(USB_EP_OUT | USB_EP5),             /*  2:bEndpointAddress */
+        USB_EP_BULK,                                 /*  3:bmAttribute */
+        (uint8_t)(USB_MXPS_BULK_HI % USB_VALUE_256), /*  4:wMaxPacketSize_lo */
+        (uint8_t)(USB_MXPS_BULK_HI / USB_VALUE_256), /*  5:wMaxPacketSize_hi */
+        0,                                           /*  6:bInterval */
+
+        /* Endpoint Descriptor 2 */
+        USB_ED_BLENGTH,                              /*  0:bLength */
+        USB_DT_ENDPOINT,                             /*  1:bDescriptorType */
+        (uint8_t)(USB_EP_IN | USB_EP6),             /*  2:bEndpointAddress */
+        USB_EP_BULK,                                 /*  3:bmAttribute */
+        (uint8_t)(USB_MXPS_BULK_HI % USB_VALUE_256), /*  4:wMaxPacketSize_lo */
+        (uint8_t)(USB_MXPS_BULK_HI / USB_VALUE_256), /*  5:wMaxPacketSize_hi */
+        0,   
+
+
+
 };
 
 /*************************************
@@ -425,9 +432,9 @@ uint8_t g_apl_string_descriptor0[STRING_DESCRIPTOR0_LEN + (STRING_DESCRIPTOR0_LE
 
 /* iManufacturer */
 uint8_t g_apl_string_descriptor1[STRING_DESCRIPTOR1_LEN + (STRING_DESCRIPTOR1_LEN % 2)] =
-{
+    {
         STRING_DESCRIPTOR1_LEN, /*  0:bLength */
-    USB_DT_STRING,                                              /*  1:bDescriptorType */
+        USB_DT_STRING,                                              /*  1:bDescriptorType */
         'R',
         0x00, /*  2:wLANGID[0] */
         'e',
@@ -573,7 +580,22 @@ uint8_t g_apl_string_descriptor7[STRING_DESCRIPTOR7_LEN + (STRING_DESCRIPTOR7_LE
         'O', 0x00,
         'M', 0x00};
 
-uint8_t *g_apl_string_table[] =
+uint8_t MSFT100[STRING_MSFT100_LEN + (STRING_MSFT100_LEN % 2)] =
+    {
+        STRING_MSFT100_LEN,      /*  0:bLength */
+        USB_DT_STRING,          /*  1:bDescriptorType */
+        'M', 0x00,
+        'S', 0x00,
+        'F', 0x00,
+        'T', 0x00,
+        '1', 0x00,
+        '0', 0x00,
+        '0', 0x00,
+        MS_VENDOR_CODE_CMSIS_DAP, /* Vendor code */
+        0x00 /* Pad */
+        };
+
+uint8_t *g_apl_string_table[NUM_STRING_DESCRIPTOR] =
     {
         g_apl_string_descriptor0,
         g_apl_string_descriptor1,
@@ -583,30 +605,90 @@ uint8_t *g_apl_string_table[] =
         g_apl_string_descriptor5,
         g_apl_string_descriptor_serial_number,
         g_apl_string_descriptor7,
+        NULL,
+        NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
+        
+        MSFT100 /* String Index : 238 */
 };
 
-/************************************************************
- *  HID Report Descriptor for CMSIS-DAP                     *
- ************************************************************/
-const uint8_t g_apl_report[] =
-    {
-        0x06, 0x00, 0xFF, // Usage Page (Vendor Defined 0xFF00)
-        0x09, 0x01,       // Usage (0x01)
-        0xA1, 0x01,       // Collection (Application)
-        0x15, 0x00,       //   Logical Minimum (0)
-        0x26, 0xFF, 0x00, //   Logical Maximum (255)
-        0x75, 0x08,       //   Report Size (8)
-        0x96, 0x40, 0x00, //   Report Count (64)
-        0x09, 0x01,       //   Usage (0x01)
-        0x81, 0x02,       //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
-        0x96, 0x40, 0x00, //   Report Count (64)
-        0x09, 0x01,       //   Usage (0x01)
-        0x91, 0x02,       //   Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
-        0x95, 0x01,       //   Report Count (1)
-        0x09, 0x01,       //   Usage (0x01)
-        0xB1, 0x02,       //   Feature (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
-        0xC0,             // End Collection
+tyRAM4ECID ecd = {
+    .hdr = {
+        .dwLength               = sizeof(tyRAM4ECID),
+        .bcdVersion             = 0x0100,
+        .wIndex                 = 0x0004,
+        .bCount                 = 0x02,
+        .RESERVED               = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+    },
+    .pvnd = {
+        .bFirstInterfaceNumber = INTERFACE_CMSIS_DAP,
+        .RESERVED1             = {0x01},
+        .compatibleID          = {'W', 'I', 'N', 'U', 'S', 'B', 0x00, 0x00},
+        .subCompatibleID       = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+        .RESERVED2             = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+    },
+    .pcdc = {
+        .bFirstInterfaceNumber = INTERFACE_PCDC_FIRST,
+        .RESERVED1             = {0x01},
+        .compatibleID          = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+        .subCompatibleID       = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+        .RESERVED2             = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+    }
 };
+
+uint8_t ExtendedPropertiesDescriptor[0x0000008E] = 
+{ 
+    // Header Section
+    0x8E, 0x00, 0x00, 0x00, // dwLength
+    0x00, 0x01,             // bcdVersion
+    0x05, 0x00,             // wIndex
+    0x01, 0x00,             // wCount
+    
+    // Custom Property Section
+    0x84, 0x00, 0x00, 0x00, // dwSize
+    0x01, 0x00, 0x00, 0x00, // dwPropertyDataType (A NULL-terminated Unicode String (REG_SZ))
+    0x28, 0x00,             // wPropertyNameLength
+    
+    // bPropertyName DeviceInterfaceGUIDs\0
+    'D' , 0x00, 'e' , 0x00, 'v' , 0x00, 'i' , 0x00, 'c' , 0x00, 'e' , 0x00, 'I' , 0x00, 'n' , 0x00, 
+    't' , 0x00, 'e' , 0x00, 'r' , 0x00, 'f' , 0x00, 'a' , 0x00, 'c' , 0x00, 'e' , 0x00, 'G' , 0x00, 
+    'U' , 0x00, 'I' , 0x00, 'D' , 0x00, 0x00, 0x00,
+
+    // dwPropertyDataLength
+    0x4E, 0x00, 0x00, 0x00, 
+    
+     // bPropertyData "{CDB3B5AD-293B-4663-AA36-1AAE46463776}"
+    '{' , 0x00, 'C' , 0x00, 'D' , 0x00, 'B' , 0x00, '3' , 0x00, 'B' , 0x00, '5' , 0x00, 'A' , 0x00, 
+    'D' , 0x00, '-' , 0x00, '2' , 0x00, '9' , 0x00, '3' , 0x00, 'B' , 0x00, '-' , 0x00, '4' , 0x00, 
+    '6' , 0x00, '6' , 0x00, '3' , 0x00, '-' , 0x00, 'A' , 0x00, 'A' , 0x00, '3' , 0x00, '6' , 0x00, 
+    '-' , 0x00, '1' , 0x00, 'A' , 0x00, 'A' , 0x00, 'E' , 0x00, '4' , 0x00, '6' , 0x00, '4' , 0x00, 
+    '6' , 0x00, '3' , 0x00, '7' , 0x00, '7' , 0x00, '6' , 0x00, '}' , 0x00, 0x00, 0x00
+};  
+
 
 const usb_descriptor_t g_usb_descriptor =
     {

@@ -1,7 +1,7 @@
 [BREAKPOINTS]
 ForceImpTypeAny = 0
 ShowInfoWin = 1
-EnableFlashBP = 1
+EnableFlashBP = 0
 BPDuringExecution = 0
 [CFI]
 CFISize = 0x00
@@ -10,7 +10,7 @@ CFIAddr = 0x00
 MonModeVTableAddr = 0xFFFFFFFF
 MonModeDebug = 0
 MaxNumAPs = 0
-LowPowerHandlingMode = 0
+LowPowerHandlingMode = 1
 OverrideMemMap = 0
 AllowSimulation = 1
 ScriptFile=""
@@ -39,6 +39,11 @@ RdOverrideAndMask = 0xFFFFFFFF
 RdOverrideAddr = 0xFFFFFFFF
 WrOverrideOrMask = 0x00
 WrOverrideAndMask = 0xFFFFFFFF
+WrOverrideAddr = 0xFFFFFFFF
+[RAM]
+VerifyDownload = 0x00
+FFF
+WrOverrideAddr = FF
 WrOverrideAddr = 0xFFFFFFFF
 [RAM]
 VerifyDownload = 0x00
