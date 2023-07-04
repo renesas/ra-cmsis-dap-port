@@ -46,11 +46,11 @@ Due to the pitch of the pins on a standard Cortex-M debug header, you may find i
 ### Pictures
 The below show an EK-RA4M2 board being used as a CMSIS-DAP debug probe for debugging an EK-RA4M3 board :
 
-[![EK-RA4M2 in use as a CMSIS-DAP Probe #1](/pics/ProbeConnections_1-sm.jpg)](/pics/ProbeConnections_1.jpg) [![EK-RA4M2 in use as a CMSIS-DAP Probe #2](/pics/ProbeConnections_2-sm.jpg)](/pics/ProbeConnections_2.jpg)
+[![EK-RA4M2 in use as a CMSIS-DAP Probe #1](pics/ProbeConnections_1-sm.jpg)](pics/ProbeConnections_1.jpg) [![EK-RA4M2 in use as a CMSIS-DAP Probe #2](pics/ProbeConnections_2-sm.jpg)](pics/ProbeConnections_2.jpg)
 
 The below show the board as it appears in Windows 10 Devices and Printers:
 
-[![Probe in Devices & Printers](/pics/Probe_Devices_Printers-sm.jpg)](/pics/Probe_Devices_Printers.jpg) [![Probe Properties](/pics/Probe_Properties-sm.jpg)](/pics/Probe_Properties.jpg)
+[![Probe in Devices & Printers](pics/Probe_Devices_Printers-sm.jpg)](pics/Probe_Devices_Printers.jpg) [![Probe Properties](pics/Probe_Properties-sm.jpg)](pics/Probe_Properties.jpg)
 
 ### Tools
 The project is currently intended to be built using FSP 4.3.0 and e<sup>2</sup> studio 2023-01, available from https://github.com/renesas/fsp/releases/tag/v4.3.0.
@@ -59,5 +59,3 @@ It has been tested with a variety of RA Family MCUs using
 * Keil MDK 5.38a in conjunction with the Renesas RA CMSIS Device Family Pack (DFP) providing device support including flash loaders.
 * IAR EWARM 9.32.x (using IAR flash loaders).
 * PyOCD 0.34.1 (using flash loaders from the RA DFP).
-
-
