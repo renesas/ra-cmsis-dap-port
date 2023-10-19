@@ -102,8 +102,8 @@ FSP Configuration
       P013 86 - - - - Disabled - - "ADC0: AN011; ANALOG0: VREFL" - None - - 
       P014 85 - ARDUINO_A4 - - Disabled - - "ADC0: AN012; DAC0: DA0" - None - - 
       P015 84 - ARDUINO_A5 - - Disabled - - "ADC0: AN013; DAC1: DA1; ICU0: IRQ13" - None - - 
-      P100 75 - ARDUINO_RX_MIKROBUS_RX - - Disabled - - "AGT0: AGTIO0; GPT_POEG0: GTETRGA; GPT5: GTIOC5B; ICU0: IRQ02; QSPI0: QSPCLK; SCI0: RXD0; SCI0: SCL0; SCI1: SCK1" - None - - 
-      P101 74 - ARDUINO_TX_MIKROBUS_TX - - Disabled - - "AGT0: AGTEE0; GPT_POEG1: GTETRGB; GPT5: GTIOC5A; ICU0: IRQ01; QSPI0: QIO1; SCI0: SDA0; SCI0: TXD0; SCI1: CTSRTS1" - None - - 
+      P100 75 SCI0_RXD0 ARDUINO_RX_MIKROBUS_RX Low None "Peripheral mode" CMOS None "AGT0: AGTIO0; GPT_POEG0: GTETRGA; GPT5: GTIOC5B; ICU0: IRQ02; QSPI0: QSPCLK; SCI0: RXD0; SCI0: SCL0; SCI1: SCK1" - IO - - 
+      P101 74 SCI0_TXD0 ARDUINO_TX_MIKROBUS_TX Low None "Peripheral mode" CMOS None "AGT0: AGTEE0; GPT_POEG1: GTETRGB; GPT5: GTIOC5A; ICU0: IRQ01; QSPI0: QIO1; SCI0: SDA0; SCI0: TXD0; SCI1: CTSRTS1" - IO - - 
       P102 73 GPIO ARDUINO_D8 Low - "Output mode (Initial Low)" CMOS - "ADC0: ADTRG0; AGT0: AGTO0; CAN0: CRX0; GPT_OPS0: GTOWLO; GPT2: GTIOC2B; QSPI0: QIO0; SCI0: SCK0" - IO - - 
       P103 72 GPIO ARDUINO_D6 Low - "Output mode (Initial Low)" CMOS - "AGT2: AGTIO2; CAN0: CTX0; GPT_OPS0: GTOWUP; GPT2: GTIOC2A; QSPI0: QIO3; SCI0: CTSRTS0" - IO - - 
       P104 71 QSPI0_QIO2 QSPI_IO2 Low None "Peripheral mode" CMOS None "AGT2: AGTEE2; GPT_POEG1: GTETRGB; GPT1: GTIOC1B; ICU0: IRQ01; QSPI0: QIO2" - IO - - 
@@ -203,8 +203,8 @@ FSP Configuration
       P013 86 - - - - Disabled - - "ADC0: AN011; ANALOG0: VREFL" - None - - 
       P014 85 - ARDUINO_A4 - - Disabled - - "ADC0: AN012; DAC0: DA0" - None - - 
       P015 84 - ARDUINO_A5 - - Disabled - - "ADC0: AN013; DAC1: DA1; ICU0: IRQ13" - None - - 
-      P100 75 - ARDUINO_RX_MIKROBUS_RX - - Disabled - - "AGT0: AGTIO0; GPT_POEG0: GTETRGA; GPT5: GTIOC5B; ICU0: IRQ02; QSPI0: QSPCLK; SCI0: RXD0; SCI0: SCL0; SCI1: SCK1" - None - - 
-      P101 74 - ARDUINO_TX_MIKROBUS_TX - - Disabled - - "AGT0: AGTEE0; GPT_POEG1: GTETRGB; GPT5: GTIOC5A; ICU0: IRQ01; QSPI0: QIO1; SCI0: SDA0; SCI0: TXD0; SCI1: CTSRTS1" - None - - 
+      P100 75 - ARDUINO_RX_MIKROBUS_RX Low None Disabled CMOS None "AGT0: AGTIO0; GPT_POEG0: GTETRGA; GPT5: GTIOC5B; ICU0: IRQ02; QSPI0: QSPCLK; SCI0: RXD0; SCI0: SCL0; SCI1: SCK1" - IO - - 
+      P101 74 - ARDUINO_TX_MIKROBUS_TX Low None Disabled CMOS None "AGT0: AGTEE0; GPT_POEG1: GTETRGB; GPT5: GTIOC5A; ICU0: IRQ01; QSPI0: QIO1; SCI0: SDA0; SCI0: TXD0; SCI1: CTSRTS1" - IO - - 
       P102 73 - ARDUINO_D8 Low - Disabled CMOS - "ADC0: ADTRG0; AGT0: AGTO0; CAN0: CRX0; GPT_OPS0: GTOWLO; GPT2: GTIOC2B; QSPI0: QIO0; SCI0: SCK0" - IO - - 
       P103 72 - ARDUINO_D6 Low - Disabled CMOS - "AGT2: AGTIO2; CAN0: CTX0; GPT_OPS0: GTOWUP; GPT2: GTIOC2A; QSPI0: QIO3; SCI0: CTSRTS0" - IO - - 
       P104 71 - QSPI_IO2 Low None Disabled CMOS None "AGT2: AGTEE2; GPT_POEG1: GTETRGB; GPT1: GTIOC1B; ICU0: IRQ01; QSPI0: QIO2" - IO - - 
@@ -307,7 +307,7 @@ FSP Configuration
     
   Module "UART (r_sci_uart)"
     Parameter Checking: Default (BSP)
-    FIFO Support: Disable
+    FIFO Support: Enable
     DTC Support: Disable
     Flow Control Support: Disable
     RS-485 Support: Disable
@@ -468,6 +468,41 @@ FSP Configuration
       Interrupts: Transmit End Interrupt Priority: Priority 12
       Interrupts: Error Interrupt Priority: Priority 12
       
+  Thread "SWO Thread"
+    Symbol: swo_thread
+    Name: SWO Thread
+    Stack size (bytes): 2048
+    Priority: 1
+    Thread Context: NULL
+    Memory Allocation: Static
+    Allocate Secure Context: Enable
+    
+    Instance "g_uart_swo UART (r_sci_uart)"
+      General: Name: g_uart_swo
+      General: Channel: 0
+      General: Data Bits: 8bits
+      General: Parity: None
+      General: Stop Bits: 1bit
+      Baud: Baud Rate: 115200
+      Baud: Baud Rate Modulation: Disabled
+      Baud: Max Error (%): 5
+      Flow Control: CTS/RTS Selection: Hardware RTS
+      Flow Control: Software RTS Port: Disabled
+      Flow Control: Software RTS Pin: Disabled
+      Extra: Clock Source: Internal Clock
+      Extra: Start bit detection: Falling Edge
+      Extra: Noise Filter: Disable
+      Extra: Receive FIFO Trigger Level: Max
+      Extra: RS-485: DE Pin: Disable
+      Extra: RS-485: DE Pin Polarity: Active High
+      Extra: RS-485: DE Port Number: Disabled
+      Extra: RS-485: DE Pin Number: Disabled
+      Interrupts: Callback: swo_uart_callback
+      Interrupts: Receive Interrupt Priority: Priority 12
+      Interrupts: Transmit Data Empty Interrupt Priority: Priority 12
+      Interrupts: Transmit End Interrupt Priority: Priority 12
+      Interrupts: Error Interrupt Priority: Priority 12
+      
   Object "g_sem_uart_tx Binary Semaphore"
     Symbol: g_sem_uart_tx
     Memory Allocation: Static
@@ -492,5 +527,13 @@ FSP Configuration
     Symbol: g_queue_usb_event
     Item Size (Bytes): 4
     Queue Length (Items): 20
+    Memory Allocation: Static
+    
+  Object "g_sem_SWO_Thread Binary Semaphore"
+    Symbol: g_sem_SWO_Thread
+    Memory Allocation: Static
+    
+  Object "g_sem_uart_swo Binary Semaphore"
+    Symbol: g_sem_uart_swo
     Memory Allocation: Static
     

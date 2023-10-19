@@ -30,46 +30,11 @@
 #if (SWO_UART != 0)
 #include "Driver_USART.h"
 #endif
-
-
-#define osThreadId_t int
-uint32_t 	osThreadFlagsSet (osThreadId_t thread_id, uint32_t flags);
-
-#define osWaitForever   0xFFFFFFFFU
-
-#define osFlagsWaitAny   0x00000000U
-#define osFlagsErrorTimeout   0xFFFFFFFEU
-
-
-uint32_t osThreadFlagsWait	(	uint32_t 	flags,
-uint32_t 	options,
-uint32_t 	timeout 
-);	
-
-enum  	osStatus_t {
-  osOK = 0,
-  osError = -1,
-  osErrorTimeout = -2,
-  osErrorResource = -3,
-  osErrorParameter = -4,
-  osErrorNoMemory = -5,
-  osErrorISR = -6,
-  osStatusReserved = 0x7FFFFFFF
-};
-
-osThreadId_t      SWO_ThreadId;
-
-
-uint32_t 	osThreadFlagsSet (osThreadId_t thread_id, uint32_t flags)
-{
-    return 0x0;
-}
-
-void     SWO_AbortTransfer    (void)
-{
-    
-}
-
+#if (SWO_STREAM != 0)
+#include "cmsis_os2.h"
+#define   osObjectsExternal
+#include "osObjects.h"
+#endif
 
 #if (SWO_STREAM != 0)
 #ifdef DAP_FW_V1
@@ -777,7 +742,7 @@ void SWO_TransferComplete (void) {
   osThreadFlagsSet(SWO_ThreadId, 1U);
 }
 
-// UART Thread
+// SWO Thread
 __NO_RETURN void SWO_Thread (void *argument) {
   uint32_t timeout;
   uint32_t flags;

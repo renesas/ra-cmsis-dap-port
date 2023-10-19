@@ -8,6 +8,8 @@
             <slot name="P008" secure="true"/>
         </peripheral>
         <peripheral name="PORT1" group="PORT">
+            <slot name="P100" secure="true"/>
+            <slot name="P101" secure="true"/>
             <slot name="P102" secure="true"/>
             <slot name="P103" secure="true"/>
             <slot name="P104" secure="true"/>
@@ -59,6 +61,7 @@
         </peripheral>
         <peripheral name="USB_FS" security=""/>
         <peripheral name="SCI2" group="SCI" security=""/>
+        <peripheral name="SCI0" group="SCI" security=""/>
         <peripheral name="ICU">
             <slot name="IRQ0" secure="true"/>
             <slot name="IRQ1" secure="true"/>
@@ -68,6 +71,10 @@
             <slot name="IRQ5" secure="true"/>
             <slot name="IRQ6" secure="true"/>
             <slot name="IRQ7" secure="true"/>
+            <slot name="IRQ8" secure="true"/>
+            <slot name="IRQ9" secure="true"/>
+            <slot name="IRQ10" secure="true"/>
+            <slot name="IRQ11" secure="true"/>
         </peripheral>
     </partition>
 </azone>

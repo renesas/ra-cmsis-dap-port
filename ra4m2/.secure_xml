@@ -89,6 +89,8 @@
       <configSetting altId="qspi0.qio3.p505" configurationId="qspi0.qio3"/>
       <configSetting altId="qspi0.qspclk.p305" configurationId="qspi0.qspclk"/>
       <configSetting altId="qspi0.qssl.p306" configurationId="qspi0.qssl"/>
+      <configSetting altId="sci0.rxd.p100" configurationId="sci0.rxd" isUsedByDriver="true"/>
+      <configSetting altId="sci0.txd.p101" configurationId="sci0.txd" isUsedByDriver="true"/>
       <configSetting altId="sci2.rxd.p113" configurationId="sci2.rxd" isUsedByDriver="true"/>
       <configSetting altId="sci2.txd.p112" configurationId="sci2.txd" isUsedByDriver="true"/>
       <configSetting altId="usbfs0.vbus.p407" configurationId="usbfs0.vbus" isUsedByDriver="true"/>

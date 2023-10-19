@@ -257,6 +257,32 @@
       <property id="module.driver.usb_basic.rtos_callback" value="usb_composite_callback"/>
       <property id="module.driver.usb_basic.other_context" value="NULL"/>
     </module>
+    <module id="module.driver.uart_on_sci_uart.1670506912">
+      <property id="module.driver.uart.name" value="g_uart_swo"/>
+      <property id="module.driver.uart.channel" value="0"/>
+      <property id="module.driver.uart.data_bits" value="module.driver.uart.data_bits.data_bits_8"/>
+      <property id="module.driver.uart.parity" value="module.driver.uart.parity.parity_off"/>
+      <property id="module.driver.uart.stop_bits" value="module.driver.uart.stop_bits.stop_bits_1"/>
+      <property id="module.driver.uart.baud" value="115200"/>
+      <property id="module.driver.uart.baudrate_modulation" value="module.driver.uart.baudrate_modulation.disabled"/>
+      <property id="module.driver.uart.baudrate_max_err" value="5"/>
+      <property id="module.driver.uart.flow_control" value="module.driver.uart.flow_control.rts"/>
+      <property id="module.driver.uart.pin_control_port" value="module.driver.uart.pin_control_port.PORT_DISABLE"/>
+      <property id="module.driver.uart.pin_control_pin" value="module.driver.uart.pin_control_pin.PIN_DISABLE"/>
+      <property id="module.driver.uart.clk_src" value="module.driver.uart.clk_src.int_clk"/>
+      <property id="module.driver.uart.rx_edge_start" value="module.driver.uart.rx_edge_start.falling_edge"/>
+      <property id="module.driver.uart.noisecancel_en" value="module.driver.uart.noisecancel_en.disabled"/>
+      <property id="module.driver.uart.rx_fifo_trigger" value="module.driver.uart.rx_fifo_trigger.max"/>
+      <property id="module.driver.uart.rs485.de_enable" value="module.driver.uart.rs485.de_enable.disabled"/>
+      <property id="module.driver.uart.rs485.de_polarity" value="module.driver.uart.rs485.de_polarity.high"/>
+      <property id="module.driver.uart.rs485.de_port_number" value="module.driver.uart.rs485.de_port_number.PORT_DISABLE"/>
+      <property id="module.driver.uart.rs485.de_pin_number" value="module.driver.uart.rs485.de_pin_number.PIN_DISABLE"/>
+      <property id="module.driver.uart.callback" value="swo_uart_callback"/>
+      <property id="module.driver.uart.rxi_ipl" value="board.icu.common.irq.priority12"/>
+      <property id="module.driver.uart.txi_ipl" value="board.icu.common.irq.priority12"/>
+      <property id="module.driver.uart.tei_ipl" value="board.icu.common.irq.priority12"/>
+      <property id="module.driver.uart.eri_ipl" value="board.icu.common.irq.priority12"/>
+    </module>
     <object id="rtos.awsfreertos.object.binary_semaphore.1660395091">
       <property id="rtos.awsfreertos.object.binary_semaphore.symbol" value="g_sem_uart_tx"/>
       <property id="rtos.awsfreertos.object.binary_semaphore.allocation" value="rtos.awsfreertos.object.binary_semaphore.allocation.static"/>
@@ -283,6 +309,16 @@
       <property id="rtos.awsfreertos.object.queue.queue_length" value="20"/>
       <property id="rtos.awsfreertos.object.queue.allocation" value="rtos.awsfreertos.object.queue.allocation.static"/>
     </object>
+    <object id="rtos.awsfreertos.object.queue.2013754999">
+      <property id="rtos.awsfreertos.object.queue.symbol" value="g_queue_swo_tx"/>
+      <property id="rtos.awsfreertos.object.queue.item_size" value="1"/>
+      <property id="rtos.awsfreertos.object.queue.queue_length" value="2048"/>
+      <property id="rtos.awsfreertos.object.queue.allocation" value="rtos.awsfreertos.object.queue.allocation.static"/>
+    </object>
+    <object id="rtos.awsfreertos.object.binary_semaphore.1629619151">
+      <property id="rtos.awsfreertos.object.binary_semaphore.symbol" value="g_sem_SWO_Thread"/>
+      <property id="rtos.awsfreertos.object.binary_semaphore.allocation" value="rtos.awsfreertos.object.binary_semaphore.allocation.static"/>
+    </object>
     <context id="_hal.0">
       <stack module="module.driver.ioport_on_ioport.0"/>
       <stack module="module.middleware.rm_freertos_port.0"/>
@@ -303,6 +339,16 @@
         </stack>
       </stack>
       <stack module="module.driver.uart_on_sci_uart.1581224452"/>
+    </context>
+    <context id="rtos.awsfreertos.thread.417919313">
+      <property id="_symbol" value="swo_thread"/>
+      <property id="rtos.awsfreertos.thread.name" value="SWO Thread"/>
+      <property id="rtos.awsfreertos.thread.stack" value="2048"/>
+      <property id="rtos.awsfreertos.thread.priority" value="1"/>
+      <property id="rtos.awsfreertos.thread.context" value="NULL"/>
+      <property id="rtos.awsfreertos.thread.allocation" value="rtos.awsfreertos.thread.allocation.static"/>
+      <property id="rtos.awsfreertos.thread.secure_context" value="rtos.awsfreertos.thread.secure_context.enable"/>
+      <stack module="module.driver.uart_on_sci_uart.1670506912"/>
     </context>
     <config id="config.driver.usb_pcdc">
       <property id="config.driver.usb_pcdc.bulk_in" value="config.driver.usb_pcdc.bulk_in.pipe3"/>
@@ -480,6 +526,10 @@
       <configSetting altId="p008.gpio_irq.gpio_irq_enabled" configurationId="p008.gpio_irq"/>
       <configSetting altId="p008.gpio_mode.gpio_mode_in" configurationId="p008.gpio_mode"/>
       <configSetting altId="p008.gpio_pupd.gpio_pupd_ip_up" configurationId="p008.gpio_pupd"/>
+      <configSetting altId="p100.sci0.rxd" configurationId="p100"/>
+      <configSetting altId="p100.gpio_mode.gpio_mode_peripheral" configurationId="p100.gpio_mode"/>
+      <configSetting altId="p101.sci0.txd" configurationId="p101"/>
+      <configSetting altId="p101.gpio_mode.gpio_mode_peripheral" configurationId="p101.gpio_mode"/>
       <configSetting altId="p102.output.low" configurationId="p102"/>
       <configSetting altId="p102.gpio_mode.gpio_mode_out.low" configurationId="p102.gpio_mode"/>
       <configSetting altId="p103.output.low" configurationId="p103"/>
@@ -570,6 +620,9 @@
       <configSetting altId="qspi0.qio3.p505" configurationId="qspi0.qio3"/>
       <configSetting altId="qspi0.qspclk.p305" configurationId="qspi0.qspclk"/>
       <configSetting altId="qspi0.qssl.p306" configurationId="qspi0.qssl"/>
+      <configSetting altId="sci0.mode.asynchronous.free" configurationId="sci0.mode"/>
+      <configSetting altId="sci0.rxd.p100" configurationId="sci0.rxd"/>
+      <configSetting altId="sci0.txd.p101" configurationId="sci0.txd"/>
       <configSetting altId="sci2.mode.asynchronous.b" configurationId="sci2.mode"/>
       <configSetting altId="sci2.pairing.b" configurationId="sci2.pairing"/>
       <configSetting altId="sci2.rxd.p113" configurationId="sci2.rxd"/>

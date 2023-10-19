@@ -1,11 +1,11 @@
 #include "dap_thread.h"
-/* DAP Thread entry function */
-/* pvParameters contains TaskHandle_t */
 #include "common_utils.h"
 #include "usb_composite.h"
 #include "CMSIS-DAP\DAP_config.h"
 #include "CMSIS-DAP\DAP.h"
 #include "r_usb_pcdc_cfg.h"
+#include "CMSIS-DAP/Driver_USART.h"
+
 /**********************************************************************************************************************
  * @addtogroup usb_composite_ep
  * @{
@@ -21,6 +21,11 @@ extern bsp_leds_t g_bsp_leds;
 extern uint8_t g_apl_string_descriptor_serial_number[];
 extern uint8_t ExtendedPropertiesDescriptor[];
 extern tyRAM4ECID ecd;
+extern ARM_USART_SignalEvent_t ARM_USART_Initialize_cb_event;
+extern uint8_t *ARM_USART_Receive_data;
+extern uint32_t ARM_USART_Receive_recvd;
+extern uint32_t ARM_USART_Receive_num;
+void SWO_TransferComplete(void);
 
 /* Local Module Variables */
 static bool b_usb_configured = false;
@@ -73,7 +78,6 @@ static uart_cfg_t g_uart_test_cfg;
 static sci_uart_extended_cfg_t sci_extend_cfg;
 static uint32_t g_uart_activity = 0x0;
 static uint8_t g_PCDC_tx_data[CDC_DATA_LEN];
-
 #define START_PIPE (USB_PIPE1)   // Start pipe number
 #define END_PIPE (USB_PIPE9 + 1) // Total pipe
 
@@ -429,6 +433,36 @@ void dap_thread_entry(void *pvParameters)
             }
         }
 
+        /* Check if UART SWO data has received from target MCU */
+        if (true == b_usb_configured)
+        {
+            UBaseType_t ARM_USART_Receive_queued = uxQueueMessagesWaiting(g_queue_swo_tx);
+            uint32_t ARM_USART_Receive_remain = ARM_USART_Receive_num - ARM_USART_Receive_recvd;
+
+            if (ARM_USART_Receive_remain && ARM_USART_Receive_queued)
+            {
+                uint32_t ARM_USART_Receive_bytes = (ARM_USART_Receive_queued < ARM_USART_Receive_remain) ? ARM_USART_Receive_queued : ARM_USART_Receive_remain;
+                for (uint32_t itr = 0, idx = 0; itr < ARM_USART_Receive_bytes; itr++, idx += 1)
+                {
+                    if (pdTRUE != xQueueReceive(g_queue_swo_tx, ARM_USART_Receive_data + ARM_USART_Receive_recvd + idx, portMAX_DELAY))
+                    {
+                        handle_error(1, "\r\n Did not receive expected count of characters \r\n");
+                    }
+                }
+                ARM_USART_Receive_recvd += ARM_USART_Receive_bytes;
+            }
+            if (ARM_USART_Receive_num && (ARM_USART_Receive_recvd == ARM_USART_Receive_num))
+            {
+                ARM_USART_Receive_recvd = 0x0;
+                ARM_USART_Receive_num = 0x0;
+                ARM_USART_Receive_data = NULL;
+                if (ARM_USART_Initialize_cb_event)
+                {
+                    ARM_USART_Initialize_cb_event(ARM_USART_EVENT_RECEIVE_COMPLETE);
+                }
+            }
+        }
+
         R_BSP_PinWrite((bsp_io_port_pin_t)g_bsp_leds.p_leds[LED_INDEX_VCOM],
                        g_uart_activity != 0 ? BSP_IO_LEVEL_HIGH : BSP_IO_LEVEL_LOW);
 
@@ -570,6 +604,12 @@ static fsp_err_t process_usb_events(usb_event_info_t *p_event_info)
                     {
                         USB_ResponseIdle = 1U;
                     }
+                }
+                else if (swo_pipe == p_event_info->pipe)
+                {
+                    /* Let the SWO handler know the transfer is complete */
+                    // APP_PRINT("process_usb_events USB_STATUS_WRITE_COMPLETE (SWO 0x%X)\r\n", swo_pipe);
+                    SWO_TransferComplete();
                 }
             }
             break;
@@ -821,6 +861,7 @@ void usb_composite_callback(usb_event_info_t *p_event_info, usb_hdl_t handler, u
 
     if (pdTRUE != (xQueueSend(g_queue_usb_event, (const void *)&p_event_info, (TickType_t)(RESET_VALUE))))
     {
+        APP_ERR_PRINT("\r\n !! usb_composite_callback xQueueSend failed. \r\n");
     }
 }
 
@@ -859,18 +900,42 @@ void user_uart_callback(uart_callback_args_t *p_args)
     }
     break;
     case UART_EVENT_ERR_PARITY:
-        APP_PRINT("\r\n !! UART_EVENT_ERR_PARITY \r\n");
+        APP_ERR_PRINT("\r\n !! UART_EVENT_ERR_PARITY \r\n");
         break;
     case UART_EVENT_ERR_FRAMING:
-        APP_PRINT("\r\n !! UART_EVENT_ERR_FRAMING \r\n");
+        APP_ERR_PRINT("\r\n !! UART_EVENT_ERR_FRAMING \r\n");
         break;
     case UART_EVENT_ERR_OVERFLOW:
-        APP_PRINT("\r\n !! UART_EVENT_ERR_OVERFLOW \r\n");
+        APP_ERR_PRINT("\r\n !! UART_EVENT_ERR_OVERFLOW \r\n");
         break;
     case UART_EVENT_BREAK_DETECT:
-        APP_PRINT("\r\n !! UART_EVENT_BREAK_DETECT \r\n");
+        APP_ERR_PRINT("\r\n !! UART_EVENT_BREAK_DETECT \r\n");
         break;
     default: /** Do Nothing */
         break;
+    }
+}
+
+// SWO Data Queue Transfer
+//   buf:    pointer to buffer with data
+//   num:    number of bytes to transfer
+void SWO_QueueTransfer(uint8_t *buf, uint32_t num)
+{
+    fsp_err_t err = FSP_SUCCESS;
+    err = R_USB_PipeWrite(&g_basic1_ctrl, buf, num, swo_pipe);
+    if (FSP_SUCCESS != err)
+    {
+        APP_ERR_PRINT("\r\nSWO_QueueTransfer R_USB_PipeWrite API failed %d.\r\n", err);
+    }
+}
+
+// SWO Data Abort : Abort the SWO Transfer of SWO Data to the PC
+void SWO_AbortTransfer(void)
+{
+    fsp_err_t err = FSP_SUCCESS;
+    err = R_USB_PipeStop(&g_basic1_ctrl, swo_pipe);
+    if (FSP_SUCCESS != err)
+    {
+        APP_ERR_PRINT("\r\nSWO_AbortTransfer R_USB_PipeStop API failed %d.\r\n", err);
     }
 }

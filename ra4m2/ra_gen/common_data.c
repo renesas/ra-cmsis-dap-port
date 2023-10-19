@@ -31,6 +31,17 @@ StaticQueue_t g_queue_usb_event_memory;
 uint8_t g_queue_usb_event_queue_memory[4 * 20];
 #endif
 void rtos_startup_err_callback(void *p_instance, void *p_data);
+QueueHandle_t g_queue_swo_tx;
+#if 1
+StaticQueue_t g_queue_swo_tx_memory;
+uint8_t g_queue_swo_tx_queue_memory[1 * 2048];
+#endif
+void rtos_startup_err_callback(void *p_instance, void *p_data);
+SemaphoreHandle_t g_sem_SWO_Thread;
+#if 1
+StaticSemaphore_t g_sem_SWO_Thread_memory;
+#endif
+void rtos_startup_err_callback(void *p_instance, void *p_data);
 void g_common_init(void)
 {
     g_sem_uart_tx =
@@ -103,5 +114,32 @@ void g_common_init(void)
     if (NULL == g_queue_usb_event)
     {
         rtos_startup_err_callback (g_queue_usb_event, 0);
+    }
+    g_queue_swo_tx =
+#if 1
+            xQueueCreateStatic (
+#else
+                xQueueCreate(
+                #endif
+                                2048,
+                                1
+#if 1
+                                ,
+                                &g_queue_swo_tx_queue_memory[0], &g_queue_swo_tx_memory
+#endif
+                                );
+    if (NULL == g_queue_swo_tx)
+    {
+        rtos_startup_err_callback (g_queue_swo_tx, 0);
+    }
+    g_sem_SWO_Thread =
+#if 1
+            xSemaphoreCreateBinaryStatic (&g_sem_SWO_Thread_memory);
+#else
+                xSemaphoreCreateBinary();
+                #endif
+    if (NULL == g_sem_SWO_Thread)
+    {
+        rtos_startup_err_callback (g_sem_SWO_Thread, 0);
     }
 }

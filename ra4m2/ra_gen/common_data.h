@@ -22,6 +22,8 @@ extern SemaphoreHandle_t g_sem_pcdc_tx;
 extern QueueHandle_t g_queue_uart_tx_8;
 extern QueueHandle_t g_queue_uart_tx_16;
 extern QueueHandle_t g_queue_usb_event;
+extern QueueHandle_t g_queue_swo_tx;
+extern SemaphoreHandle_t g_sem_SWO_Thread;
 void g_common_init(void);
 FSP_FOOTER
 #endif /* COMMON_DATA_H_ */
