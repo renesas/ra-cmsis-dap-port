@@ -63,6 +63,24 @@ typedef __PACKED_STRUCT
 } tyRAM4ECID;
 
 
+typedef struct _SWO_UART_STAT {
+  uint32_t HW_FIFO_OVERFLOW;      ///< Number of UART_EVENT_ERR_OVERFLOW events
+  uint32_t QUEUE_OVERFLOW;        ///< Number of bytes that could not be pushed to queue
+  uint32_t SMALLEST_RCV;     ///< Smallest request to receive on UART
+  uint32_t LARGEST_RCV;      ///< Largest request to receive on UART
+} SWO_UART_STAT;
+
+typedef struct _SWO_USB_STAT {
+  uint32_t SMALLEST_TX;     ///< Smallest request to transmit to host
+  uint32_t LARGEST_TX;      ///< Largest request to transmit to host
+} SWO_USB_STAT;
+void ProcessUartSwoQueue(void);
+void ProcessUsbSwoQueue(void);
+typedef __PACKED_STRUCT {
+    uint8_t *buf;
+    uint32_t num;
+} SWO_USB_REQUEST;
+
 #define MS_VENDOR_CODE_CMSIS_DAP 0x00 
 
 // Extended compat ID OS descriptor.

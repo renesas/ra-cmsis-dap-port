@@ -59,7 +59,7 @@ const uart_cfg_t g_uart_swo_cfg =
                 .p_transfer_rx       = &RA_NOT_DEFINED,
 #endif
 #undef RA_NOT_DEFINED
-  .rxi_ipl = (12),
+  .rxi_ipl = (9),
   .txi_ipl = (12), .tei_ipl = (12), .eri_ipl = (12),
 #if defined(VECTOR_NUMBER_SCI0_RXI)
                 .rxi_irq             = VECTOR_NUMBER_SCI0_RXI,

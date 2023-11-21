@@ -3,12 +3,22 @@
 #include "usb_composite.h"
 #include "CMSIS-DAP\Driver_USART.h"
 #include "CMSIS-DAP\cmsis_os2.h"
+#include "CMSIS-DAP\DAP.h"
 
-ARM_USART_SignalEvent_t ARM_USART_Initialize_cb_event = NULL;
-uint8_t *ARM_USART_Receive_data = NULL;
-uint32_t ARM_USART_Receive_recvd = 0x0;
-uint32_t ARM_USART_Receive_num = 0x0;
+static SWO_UART_STAT swo_uart_stat = {0};
+static SWO_USB_STAT swo_usb_stat = {0};
+
+static ARM_USART_SignalEvent_t ARM_USART_Initialize_cb_event = NULL;
+static uint8_t *ARM_USART_Receive_data = NULL;
+static uint32_t ARM_USART_Receive_recvd = 0x0;
+static uint32_t ARM_USART_Receive_num = 0x0;
 osThreadId_t SWO_ThreadId = 0x0AFEBABE;
+
+#define UART_CAPTURE_BUFFER_SIZE 16384
+#define INDEX_MASK (UART_CAPTURE_BUFFER_SIZE - 1)
+static uint8_t g_swo_uartrx_buf[UART_CAPTURE_BUFFER_SIZE] = {};
+static volatile uint32_t UartIndexI = 0x0; /* Incoming Uart Index */
+static volatile uint32_t UartIndexO = 0x0; /* Outgoing Uart Index */
 
 __NO_RETURN void SWO_Thread(void *argument);
 
@@ -17,6 +27,49 @@ __NO_RETURN void SWO_Thread(void *argument);
 void swo_thread_entry(void *pvParameters)
 {
     SWO_Thread(pvParameters);
+}
+
+/*******************************************************************************************************************/ /**
+* @brief  Process the captured UART RX buffer and hand over requested amount to DAP SWO code.
+**********************************************************************************************************************/
+void ProcessUartSwoQueue(void)
+{
+    uint32_t IndexI = UartIndexI;
+
+    if (IndexI != UartIndexO)
+    {
+        uint32_t queued;
+        uint32_t ARM_USART_Receive_remain = ARM_USART_Receive_num - ARM_USART_Receive_recvd;
+
+        if (IndexI > UartIndexO)
+        {
+            queued = IndexI - UartIndexO;
+        }
+        else
+        {
+            queued = (UART_CAPTURE_BUFFER_SIZE - UartIndexO) + IndexI;
+        }
+
+        if (ARM_USART_Receive_remain && queued)
+        {
+            while ((UartIndexO != IndexI) && ARM_USART_Receive_remain)
+            {
+                ARM_USART_Receive_data[ARM_USART_Receive_recvd++] = g_swo_uartrx_buf[UartIndexO++];
+                UartIndexO &= (UART_CAPTURE_BUFFER_SIZE - 1);
+                ARM_USART_Receive_remain -= 1;
+            }
+            if (ARM_USART_Receive_remain == 0x0)
+            {
+                ARM_USART_Receive_recvd = 0x0;
+                ARM_USART_Receive_num = 0x0;
+                ARM_USART_Receive_data = NULL;
+                if (ARM_USART_Initialize_cb_event)
+                {
+                    ARM_USART_Initialize_cb_event(ARM_USART_EVENT_RECEIVE_COMPLETE);
+                }
+            }
+        }
+    }
 }
 
 /*******************************************************************************************************************/ /**
@@ -104,12 +157,19 @@ void swo_uart_callback(uart_callback_args_t *p_args)
         break;
     case UART_EVENT_RX_CHAR:
     {
-        if (pdTRUE != (xQueueSendFromISR(g_queue_swo_tx, &p_args->data, NULL)))
+
+        if (((UartIndexI + 1) & INDEX_MASK) == UartIndexO)
         {
+            swo_uart_stat.QUEUE_OVERFLOW += 1;
             if (ARM_USART_Initialize_cb_event)
             {
                 ARM_USART_Initialize_cb_event(ARM_USART_EVENT_RX_OVERFLOW);
             }
+        }
+        else
+        {
+            g_swo_uartrx_buf[UartIndexI++] = (uint8_t)p_args->data;
+            UartIndexI &= INDEX_MASK;
         }
     }
     break;
@@ -129,6 +189,7 @@ void swo_uart_callback(uart_callback_args_t *p_args)
 
         break;
     case UART_EVENT_ERR_OVERFLOW:
+        swo_uart_stat.HW_FIFO_OVERFLOW += 1;
         if (ARM_USART_Initialize_cb_event)
         {
             ARM_USART_Initialize_cb_event(ARM_USART_EVENT_RX_OVERFLOW);
@@ -143,6 +204,48 @@ void swo_uart_callback(uart_callback_args_t *p_args)
         break;
     default: /** Do Nothing */
         break;
+    }
+}
+
+// SWO Data Queue Transfer
+//   buf:    pointer to buffer with data
+//   num:    number of bytes to transfer
+void SWO_QueueTransfer(uint8_t *buf, uint32_t num)
+{
+    SWO_USB_REQUEST swo_usb_request;
+
+    swo_usb_request.buf = buf;
+    swo_usb_request.num = num;
+
+    if (pdTRUE != (xQueueSend(g_queue_swo_usb, (const void *)&swo_usb_request, (TickType_t)(RESET_VALUE))))
+    {
+        APP_ERR_PRINT("\r\n !! SWO_QueueTransfer xQueueSend failed. \r\n");
+    }
+
+    (void)xSemaphoreGive(g_sem_DAP_Thread);
+
+    if (num > swo_usb_stat.LARGEST_TX)
+    {
+        swo_usb_stat.LARGEST_TX = num;
+    }
+
+    if (num < swo_usb_stat.SMALLEST_TX)
+    {
+        swo_usb_stat.SMALLEST_TX = num;
+    }
+}
+
+// SWO Data Abort : Abort the SWO Transfer of SWO Data to the PC
+void SWO_AbortTransfer(void)
+{
+    SWO_USB_REQUEST swo_usb_request;
+
+    swo_usb_request.buf = NULL;
+    swo_usb_request.num = 0x0;
+
+    if (pdTRUE != (xQueueSend(g_queue_swo_usb, (const void *)&swo_usb_request, (TickType_t)(RESET_VALUE))))
+    {
+        APP_ERR_PRINT("\r\n !! SWO_AbortTransfer xQueueSend failed. \r\n");
     }
 }
 
@@ -164,6 +267,9 @@ void swo_uart_callback(uart_callback_args_t *p_args)
   **********************************************************************************************************************/
 static int32_t ARM_USART_Initialize(ARM_USART_SignalEvent_t cb_event)
 {
+    memset(&swo_uart_stat, 0x0, sizeof(swo_uart_stat));
+    swo_uart_stat.SMALLEST_RCV = 0xFFFFFFFF;
+    swo_usb_stat.SMALLEST_TX = 0xFFFFFFFF;
     ARM_USART_Initialize_cb_event = cb_event;
 
     return ARM_DRIVER_OK;
@@ -265,7 +371,14 @@ static int32_t ARM_USART_Receive(void *data, uint32_t num)
     ARM_USART_Receive_data = (uint8_t *)data;
     ARM_USART_Receive_recvd = 0x0;
     ARM_USART_Receive_num = num;
-
+    if (num > swo_uart_stat.LARGEST_RCV)
+    {
+        swo_uart_stat.LARGEST_RCV = num;
+    }
+    if (num < swo_uart_stat.SMALLEST_RCV)
+    {
+        swo_uart_stat.SMALLEST_RCV = num;
+    }
     return ARM_DRIVER_OK;
 }
 

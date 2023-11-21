@@ -21,10 +21,6 @@ extern bsp_leds_t g_bsp_leds;
 extern uint8_t g_apl_string_descriptor_serial_number[];
 extern uint8_t ExtendedPropertiesDescriptor[];
 extern tyRAM4ECID ecd;
-extern ARM_USART_SignalEvent_t ARM_USART_Initialize_cb_event;
-extern uint8_t *ARM_USART_Receive_data;
-extern uint32_t ARM_USART_Receive_recvd;
-extern uint32_t ARM_USART_Receive_num;
 void SWO_TransferComplete(void);
 
 /* Local Module Variables */
@@ -192,6 +188,30 @@ static void handle_error(fsp_err_t err, char *err_str)
     }
 }
 
+void ProcessUsbSwoQueue(void)
+{
+    fsp_err_t err = FSP_SUCCESS;
+    SWO_USB_REQUEST swo_usb_request;
+    if (xQueueReceive(g_queue_swo_usb, &swo_usb_request, 0x0))
+    {
+        if ((swo_usb_request.buf == NULL) && (swo_usb_request.num == 0x0))
+        {
+            err = R_USB_PipeStop(&g_basic1_ctrl, swo_pipe);
+            if (FSP_SUCCESS != err)
+            {
+                APP_ERR_PRINT("\r\nSWO_AbortTransfer R_USB_PipeStop API failed %d.\r\n", err);
+            }
+        }
+        else
+        {
+            err = R_USB_PipeWrite(&g_basic1_ctrl, swo_usb_request.buf, swo_usb_request.num, swo_pipe);
+            if (FSP_SUCCESS != err)
+            {
+                APP_ERR_PRINT("\r\nSWO_QueueTransfer R_USB_PipeWrite API failed %d.\r\n", err);
+            }
+        }
+    }
+}
 /*******************************************************************************************************************/ /**
   * @brief     Function processes usb status request.
   * @param[IN] None
@@ -274,7 +294,7 @@ void dap_thread_entry(void *pvParameters)
 
     while (true)
     {
-        if (xQueueReceive(g_queue_usb_event, &p_event_info, 0x0))
+        while (xQueueReceive(g_queue_usb_event, &p_event_info, 0x0))
         {
             uint32_t n;
             err = process_usb_events(p_event_info);
@@ -434,39 +454,13 @@ void dap_thread_entry(void *pvParameters)
         }
 
         /* Check if UART SWO data has received from target MCU */
-        if (true == b_usb_configured)
-        {
-            UBaseType_t ARM_USART_Receive_queued = uxQueueMessagesWaiting(g_queue_swo_tx);
-            uint32_t ARM_USART_Receive_remain = ARM_USART_Receive_num - ARM_USART_Receive_recvd;
-
-            if (ARM_USART_Receive_remain && ARM_USART_Receive_queued)
-            {
-                uint32_t ARM_USART_Receive_bytes = (ARM_USART_Receive_queued < ARM_USART_Receive_remain) ? ARM_USART_Receive_queued : ARM_USART_Receive_remain;
-                for (uint32_t itr = 0, idx = 0; itr < ARM_USART_Receive_bytes; itr++, idx += 1)
-                {
-                    if (pdTRUE != xQueueReceive(g_queue_swo_tx, ARM_USART_Receive_data + ARM_USART_Receive_recvd + idx, portMAX_DELAY))
-                    {
-                        handle_error(1, "\r\n Did not receive expected count of characters \r\n");
-                    }
-                }
-                ARM_USART_Receive_recvd += ARM_USART_Receive_bytes;
-            }
-            if (ARM_USART_Receive_num && (ARM_USART_Receive_recvd == ARM_USART_Receive_num))
-            {
-                ARM_USART_Receive_recvd = 0x0;
-                ARM_USART_Receive_num = 0x0;
-                ARM_USART_Receive_data = NULL;
-                if (ARM_USART_Initialize_cb_event)
-                {
-                    ARM_USART_Initialize_cb_event(ARM_USART_EVENT_RECEIVE_COMPLETE);
-                }
-            }
-        }
+        ProcessUsbSwoQueue();
+        ProcessUartSwoQueue();
 
         R_BSP_PinWrite((bsp_io_port_pin_t)g_bsp_leds.p_leds[LED_INDEX_VCOM],
                        g_uart_activity != 0 ? BSP_IO_LEVEL_HIGH : BSP_IO_LEVEL_LOW);
 
-        vTaskDelay(1);
+        xSemaphoreTake(g_sem_DAP_Thread, 1);
     }
 }
 
@@ -859,6 +853,11 @@ void usb_composite_callback(usb_event_info_t *p_event_info, usb_hdl_t handler, u
     FSP_PARAMETER_NOT_USED(handler);
     FSP_PARAMETER_NOT_USED(on_off);
 
+    if ((p_event_info->event == USB_STATUS_WRITE_COMPLETE) && (swo_pipe == p_event_info->pipe))
+    {
+        (void)xSemaphoreGive(g_sem_DAP_Thread);
+    }
+
     if (pdTRUE != (xQueueSend(g_queue_usb_event, (const void *)&p_event_info, (TickType_t)(RESET_VALUE))))
     {
         APP_ERR_PRINT("\r\n !! usb_composite_callback xQueueSend failed. \r\n");
@@ -913,29 +912,5 @@ void user_uart_callback(uart_callback_args_t *p_args)
         break;
     default: /** Do Nothing */
         break;
-    }
-}
-
-// SWO Data Queue Transfer
-//   buf:    pointer to buffer with data
-//   num:    number of bytes to transfer
-void SWO_QueueTransfer(uint8_t *buf, uint32_t num)
-{
-    fsp_err_t err = FSP_SUCCESS;
-    err = R_USB_PipeWrite(&g_basic1_ctrl, buf, num, swo_pipe);
-    if (FSP_SUCCESS != err)
-    {
-        APP_ERR_PRINT("\r\nSWO_QueueTransfer R_USB_PipeWrite API failed %d.\r\n", err);
-    }
-}
-
-// SWO Data Abort : Abort the SWO Transfer of SWO Data to the PC
-void SWO_AbortTransfer(void)
-{
-    fsp_err_t err = FSP_SUCCESS;
-    err = R_USB_PipeStop(&g_basic1_ctrl, swo_pipe);
-    if (FSP_SUCCESS != err)
-    {
-        APP_ERR_PRINT("\r\nSWO_AbortTransfer R_USB_PipeStop API failed %d.\r\n", err);
     }
 }

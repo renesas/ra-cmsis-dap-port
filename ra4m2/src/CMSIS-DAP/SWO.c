@@ -60,7 +60,7 @@ static uint8_t USART_Ready = 0U;
 
 #define SWO_STREAM_TIMEOUT      50U     /* Stream timeout in ms */
 
-#define USB_BLOCK_SIZE          512U    /* USB Block Size */
+#define USB_BLOCK_SIZE          64U    /* USB Block Size */
 #define TRACE_BLOCK_SIZE        64U     /* Trace Block Size (2^n: 32...512) */
 
 // Trace State
@@ -736,7 +736,10 @@ uint32_t SWO_Data (const uint8_t *request, uint8_t *response) {
 
 // SWO Data Transfer complete callback
 void SWO_TransferComplete (void) {
-  TraceIndexO += TransferSize;
+  if (TransferBusy) {
+    TraceIndexO += TransferSize;
+  }
+  
   TransferBusy = 0U;
   ResumeTrace();
   osThreadFlagsSet(SWO_ThreadId, 1U);

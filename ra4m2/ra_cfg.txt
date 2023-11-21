@@ -498,7 +498,7 @@ FSP Configuration
       Extra: RS-485: DE Port Number: Disabled
       Extra: RS-485: DE Pin Number: Disabled
       Interrupts: Callback: swo_uart_callback
-      Interrupts: Receive Interrupt Priority: Priority 12
+      Interrupts: Receive Interrupt Priority: Priority 9
       Interrupts: Transmit Data Empty Interrupt Priority: Priority 12
       Interrupts: Transmit End Interrupt Priority: Priority 12
       Interrupts: Error Interrupt Priority: Priority 12
@@ -533,7 +533,13 @@ FSP Configuration
     Symbol: g_sem_SWO_Thread
     Memory Allocation: Static
     
-  Object "g_sem_uart_swo Binary Semaphore"
-    Symbol: g_sem_uart_swo
+  Object "g_sem_DAP_Thread Binary Semaphore"
+    Symbol: g_sem_DAP_Thread
+    Memory Allocation: Static
+    
+  Object "g_queue_swo_usb Queue"
+    Symbol: g_queue_swo_usb
+    Item Size (Bytes): 8
+    Queue Length (Items): 1
     Memory Allocation: Static
     
