@@ -3131,14 +3131,7 @@ fsp_err_t R_USB_HostControlTransfer (usb_ctrl_t * const p_api_ctrl,
 #endif                                 /* USB_CFG_PARAM_CHECKING_ENABLE */
 
     result = R_USB_InfoGet(p_ctrl, &info, device_address);
-    if (FSP_SUCCESS == result)
-    {
-        if (USB_STATUS_CONFIGURED != info.device_status)
-        {
-            return FSP_ERR_USB_FAILED;
-        }
-    }
-    else
+    if (FSP_SUCCESS != result)
     {
         return FSP_ERR_USB_FAILED;
     }
@@ -3200,14 +3193,7 @@ fsp_err_t R_USB_PeriControlDataGet (usb_ctrl_t * const p_api_ctrl, uint8_t * p_b
 #endif                                 /* USB_CFG_PARAM_CHECKING_ENABLE */
 
     result = R_USB_InfoGet(p_ctrl, &info, p_ctrl->device_address);
-    if (FSP_SUCCESS == result)
-    {
-        if (USB_STATUS_CONFIGURED != info.device_status)
-        {
-            return FSP_ERR_USB_FAILED;
-        }
-    }
-    else
+    if (FSP_SUCCESS != result)
     {
         return FSP_ERR_USB_FAILED;
     }
@@ -3255,14 +3241,7 @@ fsp_err_t R_USB_PeriControlDataSet (usb_ctrl_t * const p_api_ctrl, uint8_t * p_b
 #endif                                 /* USB_CFG_PARAM_CHECKING_ENABLE */
 
     result = R_USB_InfoGet(p_ctrl, &info, p_ctrl->device_address);
-    if (FSP_SUCCESS == result)
-    {
-        if (USB_STATUS_CONFIGURED != info.device_status)
-        {
-            return FSP_ERR_USB_FAILED;
-        }
-    }
-    else
+    if (FSP_SUCCESS != result)
     {
         return FSP_ERR_USB_FAILED;
     }
@@ -3313,14 +3292,7 @@ fsp_err_t R_USB_PeriControlStatusSet (usb_ctrl_t * const p_api_ctrl, usb_setup_s
  #endif                                /* USB_CFG_PARAM_CHECKING_ENABLE */
 
     result = R_USB_InfoGet(p_ctrl, &info, p_ctrl->device_address);
-    if (FSP_SUCCESS == result)
-    {
-        if (USB_STATUS_CONFIGURED != info.device_status)
-        {
-            return FSP_ERR_USB_FAILED;
-        }
-    }
-    else
+    if (FSP_SUCCESS != result)
     {
         return FSP_ERR_USB_FAILED;
     }
@@ -3456,6 +3428,8 @@ fsp_err_t R_USB_ModuleNumberGet (usb_ctrl_t * const p_api_ctrl, uint8_t * module
 fsp_err_t R_USB_ClassTypeGet (usb_ctrl_t * const p_api_ctrl, usb_class_t * class_type)
 {
     usb_instance_ctrl_t * p_ctrl = (usb_instance_ctrl_t *) p_api_ctrl;
+
+    p_ctrl->type = (usb_class_t) (p_ctrl->type | USB_VALUE_80H);
 
     *class_type = p_ctrl->type;
 

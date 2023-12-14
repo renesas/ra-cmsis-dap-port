@@ -3,105 +3,158 @@
 ioport_instance_ctrl_t g_ioport_ctrl;
 const ioport_instance_t g_ioport =
 { .p_api = &g_ioport_on_ioport, .p_ctrl = &g_ioport_ctrl, .p_cfg = &g_bsp_pin_cfg, };
-QueueHandle_t g_uart_event_queue;
+SemaphoreHandle_t g_sem_uart_tx;
 #if 1
-StaticQueue_t g_uart_event_queue_memory;
-uint8_t g_uart_event_queue_queue_memory[8 * 512];
+StaticSemaphore_t g_sem_uart_tx_memory;
 #endif
 void rtos_startup_err_callback(void *p_instance, void *p_data);
-SemaphoreHandle_t g_uart_tx_mutex;
+SemaphoreHandle_t g_sem_pcdc_tx;
 #if 1
-StaticSemaphore_t g_uart_tx_mutex_memory;
+StaticSemaphore_t g_sem_pcdc_tx_memory;
 #endif
 void rtos_startup_err_callback(void *p_instance, void *p_data);
-SemaphoreHandle_t g_usb_tx_semaphore;
+QueueHandle_t g_queue_uart_tx_8;
 #if 1
-StaticSemaphore_t g_usb_tx_semaphore_memory;
+StaticQueue_t g_queue_uart_tx_8_memory;
+uint8_t g_queue_uart_tx_8_queue_memory[1 * 2048];
 #endif
 void rtos_startup_err_callback(void *p_instance, void *p_data);
-QueueHandle_t g_usb_tx_queue;
+QueueHandle_t g_queue_uart_tx_16;
 #if 1
-StaticQueue_t g_usb_tx_queue_memory;
-uint8_t g_usb_tx_queue_queue_memory[1 * 512];
+StaticQueue_t g_queue_uart_tx_16_memory;
+uint8_t g_queue_uart_tx_16_queue_memory[2 * 2048];
 #endif
 void rtos_startup_err_callback(void *p_instance, void *p_data);
-QueueHandle_t g_usb_tx_x2_queue;
+QueueHandle_t g_queue_usb_event;
 #if 1
-StaticQueue_t g_usb_tx_x2_queue_memory;
-uint8_t g_usb_tx_x2_queue_queue_memory[2 * 512];
+StaticQueue_t g_queue_usb_event_memory;
+uint8_t g_queue_usb_event_queue_memory[4 * 20];
+#endif
+void rtos_startup_err_callback(void *p_instance, void *p_data);
+SemaphoreHandle_t g_sem_SWO_Thread;
+#if 1
+StaticSemaphore_t g_sem_SWO_Thread_memory;
+#endif
+void rtos_startup_err_callback(void *p_instance, void *p_data);
+SemaphoreHandle_t g_sem_DAP_Thread;
+#if 1
+StaticSemaphore_t g_sem_DAP_Thread_memory;
+#endif
+void rtos_startup_err_callback(void *p_instance, void *p_data);
+QueueHandle_t g_queue_swo_usb;
+#if 1
+StaticQueue_t g_queue_swo_usb_memory;
+uint8_t g_queue_swo_usb_queue_memory[8 * 1];
 #endif
 void rtos_startup_err_callback(void *p_instance, void *p_data);
 void g_common_init(void)
 {
-    g_uart_event_queue =
+    g_sem_uart_tx =
+#if 1
+            xSemaphoreCreateBinaryStatic (&g_sem_uart_tx_memory);
+#else
+                xSemaphoreCreateBinary();
+                #endif
+    if (NULL == g_sem_uart_tx)
+    {
+        rtos_startup_err_callback (g_sem_uart_tx, 0);
+    }
+    g_sem_pcdc_tx =
+#if 1
+            xSemaphoreCreateBinaryStatic (&g_sem_pcdc_tx_memory);
+#else
+                xSemaphoreCreateBinary();
+                #endif
+    if (NULL == g_sem_pcdc_tx)
+    {
+        rtos_startup_err_callback (g_sem_pcdc_tx, 0);
+    }
+    g_queue_uart_tx_8 =
 #if 1
             xQueueCreateStatic (
 #else
                 xQueueCreate(
                 #endif
-                                512,
-                                8
-#if 1
-                                ,
-                                &g_uart_event_queue_queue_memory[0], &g_uart_event_queue_memory
-#endif
-                                );
-    if (NULL == g_uart_event_queue)
-    {
-        rtos_startup_err_callback (g_uart_event_queue, 0);
-    }
-    g_uart_tx_mutex =
-#if 1
-            xSemaphoreCreateBinaryStatic (&g_uart_tx_mutex_memory);
-#else
-                xSemaphoreCreateBinary();
-                #endif
-    if (NULL == g_uart_tx_mutex)
-    {
-        rtos_startup_err_callback (g_uart_tx_mutex, 0);
-    }
-    g_usb_tx_semaphore =
-#if 1
-            xSemaphoreCreateBinaryStatic (&g_usb_tx_semaphore_memory);
-#else
-                xSemaphoreCreateBinary();
-                #endif
-    if (NULL == g_usb_tx_semaphore)
-    {
-        rtos_startup_err_callback (g_usb_tx_semaphore, 0);
-    }
-    g_usb_tx_queue =
-#if 1
-            xQueueCreateStatic (
-#else
-                xQueueCreate(
-                #endif
-                                512,
+                                2048,
                                 1
 #if 1
                                 ,
-                                &g_usb_tx_queue_queue_memory[0], &g_usb_tx_queue_memory
+                                &g_queue_uart_tx_8_queue_memory[0], &g_queue_uart_tx_8_memory
 #endif
                                 );
-    if (NULL == g_usb_tx_queue)
+    if (NULL == g_queue_uart_tx_8)
     {
-        rtos_startup_err_callback (g_usb_tx_queue, 0);
+        rtos_startup_err_callback (g_queue_uart_tx_8, 0);
     }
-    g_usb_tx_x2_queue =
+    g_queue_uart_tx_16 =
 #if 1
             xQueueCreateStatic (
 #else
                 xQueueCreate(
                 #endif
-                                512,
+                                2048,
                                 2
 #if 1
                                 ,
-                                &g_usb_tx_x2_queue_queue_memory[0], &g_usb_tx_x2_queue_memory
+                                &g_queue_uart_tx_16_queue_memory[0], &g_queue_uart_tx_16_memory
 #endif
                                 );
-    if (NULL == g_usb_tx_x2_queue)
+    if (NULL == g_queue_uart_tx_16)
     {
-        rtos_startup_err_callback (g_usb_tx_x2_queue, 0);
+        rtos_startup_err_callback (g_queue_uart_tx_16, 0);
+    }
+    g_queue_usb_event =
+#if 1
+            xQueueCreateStatic (
+#else
+                xQueueCreate(
+                #endif
+                                20,
+                                4
+#if 1
+                                ,
+                                &g_queue_usb_event_queue_memory[0], &g_queue_usb_event_memory
+#endif
+                                );
+    if (NULL == g_queue_usb_event)
+    {
+        rtos_startup_err_callback (g_queue_usb_event, 0);
+    }
+    g_sem_SWO_Thread =
+#if 1
+            xSemaphoreCreateBinaryStatic (&g_sem_SWO_Thread_memory);
+#else
+                xSemaphoreCreateBinary();
+                #endif
+    if (NULL == g_sem_SWO_Thread)
+    {
+        rtos_startup_err_callback (g_sem_SWO_Thread, 0);
+    }
+    g_sem_DAP_Thread =
+#if 1
+            xSemaphoreCreateBinaryStatic (&g_sem_DAP_Thread_memory);
+#else
+                xSemaphoreCreateBinary();
+                #endif
+    if (NULL == g_sem_DAP_Thread)
+    {
+        rtos_startup_err_callback (g_sem_DAP_Thread, 0);
+    }
+    g_queue_swo_usb =
+#if 1
+            xQueueCreateStatic (
+#else
+                xQueueCreate(
+                #endif
+                                1,
+                                8
+#if 1
+                                ,
+                                &g_queue_swo_usb_queue_memory[0], &g_queue_swo_usb_memory
+#endif
+                                );
+    if (NULL == g_queue_swo_usb)
+    {
+        rtos_startup_err_callback (g_queue_swo_usb, 0);
     }
 }

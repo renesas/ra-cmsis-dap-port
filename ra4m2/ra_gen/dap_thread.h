@@ -15,7 +15,6 @@ extern void dap_thread_entry(void *pvParameters);
 #include "r_uart_api.h"
 #include "r_usb_basic.h"
 #include "r_usb_basic_api.h"
-#include "r_usb_phid_api.h"
 #include "r_usb_pcdc_api.h"
 FSP_HEADER
 /** UART on SCI Instance. */
@@ -45,7 +44,6 @@ void NULL(void*);
 void usb_composite_callback(usb_event_info_t *, usb_hdl_t, usb_onoff_t);
 #endif
 #endif
-/** PHID Driver on USB Instance. */
 /** CDC Driver on USB Instance. */
 FSP_FOOTER
 #endif /* DAP_THREAD_H_ */

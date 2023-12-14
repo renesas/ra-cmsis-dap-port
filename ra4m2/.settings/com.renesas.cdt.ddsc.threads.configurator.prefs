@@ -1,5 +1,7 @@
+collapse/module.driver.basic_on_usb.1305520318=false
 collapse/module.driver.pcdc_on_usb.205329726=false
-collapse/module.driver.phid_on_usb.1576995183=false
+collapse/module.driver.pvnd_on_usb.1811900589=false
 collapse/module.driver.uart_on_sci_uart.1581224452=false
+collapse/module.driver.uart_on_sci_uart.1670506912=false
 collapse/module.driver.usb_composite.858780907=false
 eclipse.preferences.version=1

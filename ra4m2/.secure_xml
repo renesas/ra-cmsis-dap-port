@@ -9,11 +9,12 @@
     <option key="#DeviceCommand#" value="R7FA4M2AD"/>
     <option key="#RTOS#" value="rtos.awsfreertos"/>
     <option key="#pinconfiguration#" value="R7FA4M2AD3CFP.pincfg"/>
-    <option key="#FSPVersion#" value="4.3.0"/>
+    <option key="#FSPVersion#" value="4.6.0"/>
     <option key="#ConfigurationFragments#" value="Renesas##BSP##Board##ra4m2_ek##"/>
     <option key="#SELECTED_TOOLCHAIN#" value="gcc-arm-embedded"/>
     <option key="#ToolchainVersion#" value="10.3.1.20210824"/>
   </generalSettings>
+  <raBspConfiguration/>
   <raClockConfiguration>
     <node id="board.clock.xtal.freq" mul="24000000" option="_edit"/>
     <node id="board.clock.hoco.freq" option="board.clock.hoco.freq.20m"/>
@@ -48,7 +49,6 @@
     <node id="board.clock.clkout.display" option="board.clock.clkout.display.value"/>
     <node id="board.clock.uclk.display" option="board.clock.uclk.display.value"/>
   </raClockConfiguration>
-  <raModuleConfiguration/>
   <raPinConfiguration>
     <pincfg active="true" name="" symbol="">
       <configSetting altId="cgc0.extal.p212" configurationId="cgc0.extal" isUsedByDriver="true"/>
@@ -89,9 +89,11 @@
       <configSetting altId="qspi0.qio3.p505" configurationId="qspi0.qio3"/>
       <configSetting altId="qspi0.qspclk.p305" configurationId="qspi0.qspclk"/>
       <configSetting altId="qspi0.qssl.p306" configurationId="qspi0.qssl"/>
+      <configSetting altId="sci0.rxd.p100" configurationId="sci0.rxd" isUsedByDriver="true"/>
+      <configSetting altId="sci0.txd.p101" configurationId="sci0.txd" isUsedByDriver="true"/>
       <configSetting altId="sci2.rxd.p113" configurationId="sci2.rxd" isUsedByDriver="true"/>
       <configSetting altId="sci2.txd.p112" configurationId="sci2.txd" isUsedByDriver="true"/>
-      <configSetting altId="usbfs0.vbus.p407" configurationId="usbfs0.vbus"/>
+      <configSetting altId="usbfs0.vbus.p407" configurationId="usbfs0.vbus" isUsedByDriver="true"/>
     </pincfg>
   </raPinConfiguration>
 </raConfiguration>

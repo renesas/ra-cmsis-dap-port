@@ -13,13 +13,23 @@ The CMSIS-DAP sources used as the basis of this port are taken from the CMSIS 5.
 ## Port Details
 
 ### CMSIS-DAP Version
-This port is based on the CMSIS-DAP 2.1.1 sources from the CMSIS 5.9.0 Pack file, although it currently communicates via USB HID rather than USB bulk endpoints (this may change in future updates). Note that SWO support is therefore not included currently.
+This port is based on the CMSIS-DAP 2.1.1 sources from the CMSIS 5.9.0 Pack file. 
+* Release 1.0.0 of the port uses a USB HID connection and does not provide SWO Trace support.
+* Release 2.0.0 of the port has moved to using USB bulk endpoints (winusb) and includes SWO Trace support.
 
 ### VCOM
-The port provides a VCOM (virtual COM) port, allowing a UART to USB bridge link from the target device'a UART to the host PC via the CMSIS-DAP Probe.
+The port provides a VCOM (virtual COM) port, allowing a UART to USB bridge link from the target device's UART to the host PC via the CMSIS-DAP Probe.
 
 ### VID / PID 
-The port is configured to use USB VID = 0x45B and PID = 0x201D. This is the Renesas VID and PID reserved for this CMSIS-DAP port.
+The port is configured to use USB VID = 0x45B (the Renesas VID) plus a PID reserved by Renesas for this CMSIS-DAP port as follows:
+* Release 1.0.0 of the port uses PID = 0x201D
+* Release 2.0.0 of the port changes to use PID = 0x201F
+  * This change is to prevent issues with driver installation arising from the change from USB HID to winusb.
+
+## SWO Support
+Release 2.0.0 of the port introduces SWO Trace support. The maximum supported SWO clock frequency is 2.5MHz. 
+
+[![MDK SWO Trace Configuration](pics/MDK_SWO_Config-sm.jpg)](pics/MDK_SWO_Config.jpg)
 
 ### LED Usage
 The port uses the LEDs fitted to the EK-RA4M2 as follows:
@@ -29,17 +39,18 @@ The port uses the LEDs fitted to the EK-RA4M2 as follows:
 
 ### Pin Usage
 The following connections need to be made between the EK-RA4M2 and the target board:
-| EK-RA4M2 | Target Board |
-| -------- | ------------ |
-| GND | GND |
-| BSP_IO_PORT_01_PIN_13 | UARTTX |
-| BSP_IO_PORT_01_PIN_12 | UARTRX |
-| BSP_IO_PORT_04_PIN_02| PIN_CMSIS_DAP_SWCLK |
-| BSP_IO_PORT_04_PIN_03 | PIN_CMSIS_DAP_RESET |
-| BSP_IO_PORT_04_PIN_06 | PIN_CMSIS_DAP_SWDIO |
-| BSP_IO_PORT_04_PIN_10 | PIN_CMSIS_DAP_NTRST |
-| BSP_IO_PORT_04_PIN_11	| PIN_CMSIS_DAP_TDI |
-| BSP_IO_PORT_04_PIN_12	| PIN_CMSIS_DAP_TDO |
+| EK-RA4M2 | Target Board | Notes |
+| -------- | ------------ | ----- |
+| GND | GND | |
+| BSP_IO_PORT_01_PIN_00 | PIN_CMSIS_DAP_TDO | For SWO when debugging over SWD |
+| BSP_IO_PORT_01_PIN_13 | UARTTX | |
+| BSP_IO_PORT_01_PIN_12 | UARTRX | |
+| BSP_IO_PORT_04_PIN_02| PIN_CMSIS_DAP_SWCLK | |
+| BSP_IO_PORT_04_PIN_03 | PIN_CMSIS_DAP_RESET | |
+| BSP_IO_PORT_04_PIN_06 | PIN_CMSIS_DAP_SWDIO | |
+| BSP_IO_PORT_04_PIN_10 | PIN_CMSIS_DAP_NTRST | |
+| BSP_IO_PORT_04_PIN_11	| PIN_CMSIS_DAP_TDI | | 
+| BSP_IO_PORT_04_PIN_12	| PIN_CMSIS_DAP_TDO | For when debugging over JTAG |
 
 Due to the pitch of the pins on a standard Cortex-M debug header, you may find it easier to use an adapter to allow use of a "normal" debug cable for plugging into the target board, such as Embedded Artists' 10-pin to 20-pin JTAG Adapter (https://www.embeddedartists.com/products/10-pin-to-20-pin-jtag-adapter/)
 
@@ -50,12 +61,20 @@ The below show an EK-RA4M2 board being used as a CMSIS-DAP debug probe for debug
 
 The below show the board as it appears in Windows 10 Devices and Printers:
 
-[![Probe in Devices & Printers](pics/Probe_Devices_Printers-sm.jpg)](pics/Probe_Devices_Printers.jpg) [![Probe Properties](pics/Probe_Properties-sm.jpg)](pics/Probe_Properties.jpg)
+[![Probe in Devices & Printers](pics/Probe_Devices_Printers-sm.jpg)](pics/Probe_Devices_Printers.jpg) 
+
+USB HID driver (Release 1.0.0) :
+[![Probe Properties (HID)](pics/Probe_Properties-sm.jpg)](pics/Probe_Properties.jpg)
+
+winusb driver (Release 2.0.0) :
+[![Probe Properties (winusb)](pics/Probe_Properties_winusb-sm.jpg)](pics/Probe_Properties_winusb.jpg)
 
 ### Tools
-The project is currently intended to be built using FSP 4.3.0 and e<sup>2</sup> studio 2023-01, available from https://github.com/renesas/fsp/releases/tag/v4.3.0.
+The project is currently intended to be built using :
+* Release 1.0.0 of the port : FSP 4.3.0 and e<sup>2</sup> studio 2023-01, available from https://github.com/renesas/fsp/releases/tag/v4.3.0.
+* Release 2.0.0 of the port : FSP 4.6.0 and e<sup>2</sup> studio 2023-07, available from https://github.com/renesas/fsp/releases/tag/v4.6.0.
 
-It has been tested with a variety of RA Family MCUs using 
+The probe firmware has been tested debugging a variety of RA Family MCUs using :
 * Keil MDK 5.38a in conjunction with the Renesas RA CMSIS Device Family Pack (DFP) providing device support including flash loaders.
 * IAR EWARM 9.32.x (using IAR flash loaders).
 * PyOCD 0.34.1 (using flash loaders from the RA DFP).

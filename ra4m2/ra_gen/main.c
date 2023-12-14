@@ -5,6 +5,8 @@
 #include "semphr.h"
 extern void dap_thread_create(void);
 extern TaskHandle_t dap_thread;
+extern void swo_thread_create(void);
+extern TaskHandle_t swo_thread;
 uint32_t g_fsp_common_thread_count;
 bool g_fsp_common_initialized;
 SemaphoreHandle_t g_fsp_common_initialized_semaphore;
@@ -103,6 +105,7 @@ int main(void)
 
     /* Init RTOS tasks. */
     dap_thread_create ();
+    swo_thread_create ();
 
     /* Start the scheduler. */
     vTaskStartScheduler ();
