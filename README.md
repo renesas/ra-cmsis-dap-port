@@ -24,7 +24,7 @@ The port provides a VCOM (virtual COM) port, allowing a UART to USB bridge link 
 The port is configured to use USB VID = 0x45B (the Renesas VID) plus a PID reserved by Renesas for this CMSIS-DAP port as follows:
 * Release 1.0.0 of the port uses PID = 0x201D
 * Release 2.0.0 of the port changes to use PID = 0x201F
-This change is to prevent issues with driver installation arising from the change from USB HID to winusb.
+  * This change is to prevent issues with driver installation arising from the change from USB HID to winusb.
 
 ## SWO Support
 Release 2.0.0 of the port introduces SWO Trace support. The maximum supported SWO clock frequency is 2.5MHz. 
