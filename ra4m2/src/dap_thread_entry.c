@@ -793,7 +793,12 @@ static fsp_err_t process_usb_events(usb_event_info_t *p_event_info)
         }
         else
         {
-            // Do Nothing.
+            /* ACK all other status requests */
+            err = R_USB_PeriControlStatusSet(&g_basic1_ctrl, USB_SETUP_STATUS_ACK);
+            if (FSP_SUCCESS != err)
+            {
+                ;
+            }
         }
         if (FSP_SUCCESS != err)
         {
