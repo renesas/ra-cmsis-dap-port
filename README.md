@@ -15,7 +15,7 @@ The CMSIS-DAP sources used as the basis of this port are taken from the CMSIS 5.
 ### CMSIS-DAP Version
 This port is based on the CMSIS-DAP 2.1.1 sources from the CMSIS 5.9.0 Pack file. 
 * Release 1.0.0 of the port uses a USB HID connection and does not provide SWO Trace support.
-* Release 2.0.0 of the port has moved to using USB bulk endpoints (winusb) and includes SWO Trace support.
+* Release 2.0.0 / 2.0.1 of the port has moved to using USB bulk endpoints (winusb) and includes SWO Trace support.
 
 ### VCOM
 The port provides a VCOM (virtual COM) port, allowing a UART to USB bridge link from the target device's UART to the host PC via the CMSIS-DAP Probe.
@@ -72,7 +72,7 @@ winusb driver (Release 2.0.0) :
 ### Tools
 The project is currently intended to be built using :
 * Release 1.0.0 of the port : FSP 4.3.0 and e<sup>2</sup> studio 2023-01, available from https://github.com/renesas/fsp/releases/tag/v4.3.0.
-* Release 2.0.0 of the port : FSP 4.6.0 and e<sup>2</sup> studio 2023-07, available from https://github.com/renesas/fsp/releases/tag/v4.6.0.
+* Release 2.0.0 / 2.0.1 of the port : FSP 4.6.0 and e<sup>2</sup> studio 2023-07, available from https://github.com/renesas/fsp/releases/tag/v4.6.0.
 
 The probe firmware has been tested debugging a variety of RA Family MCUs using :
 * Keil MDK 5.38a in conjunction with the Renesas RA CMSIS Device Family Pack (DFP) providing device support including flash loaders.
